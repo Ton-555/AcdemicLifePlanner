@@ -23,7 +23,7 @@ export default function App() {
             } else if (route.name === "Timetable") {
               iconName = focused ? "calendar" : "calendar-outline";
             } else if (route.name === "Planner") {
-              iconName = focused ? "checkbox" : "checkbox-outline";
+              iconName = focused ? "pulse" : "pulse-outline";
             } else if (route.name === "Profile") {
               iconName = focused ? "person" : "person-outline";
             }
