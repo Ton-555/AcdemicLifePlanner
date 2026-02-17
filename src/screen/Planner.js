@@ -1,472 +1,466 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Modal,
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    TextInput,
+    ScrollView,
+    Modal,
+    Alert,
+    Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function Planner() {
-  const [activeTab, setActiveTab] = useState("activity");
+    const [activeTab, setActiveTab] = useState("activity");
 
-  const [activities, setActivities] = useState([]);
-  const [studyPlans, setStudyPlans] = useState([]);
+    const [activities, setActivities] = useState([]);
+    const [studyPlans, setStudyPlans] = useState([]);
 
-  const [activityModal, setActivityModal] = useState(false);
-  const [taskModal, setTaskModal] = useState(false);
+    const [activityModal, setActivityModal] = useState(false);
+    const [taskModal, setTaskModal] = useState(false);
 
-  // ===== Activity Form =====
-  const [activityTitle, setActivityTitle] = useState("");
-  const [activityType, setActivityType] = useState("");
-  const [activityDate, setActivityDate] = useState("");
-  const [activityTime, setActivityTime] = useState("");
-  const [activityDetail, setActivityDetail] = useState("");
+    const [activityTitle, setActivityTitle] = useState("");
+    const [activityType, setActivityType] = useState("");
+    const [activityDate, setActivityDate] = useState("");
+    const [activityTime, setActivityTime] = useState("");
+    const [activityDetail, setActivityDetail] = useState("");
 
-  // ===== Task Form =====
-  const [taskTitle, setTaskTitle] = useState("");
-  const [taskDate, setTaskDate] = useState("");
+    const [taskTitle, setTaskTitle] = useState("");
+    const [taskDate, setTaskDate] = useState("");
 
-  // =========================
-  // Close + Reset
-  // =========================
-  const closeActivityModal = () => {
-    setActivityModal(false);
-    setActivityTitle("");
-    setActivityType("");
-    setActivityDate("");
-    setActivityTime("");
-    setActivityDetail("");
-  };
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
-  const closeTaskModal = () => {
-    setTaskModal(false);
-    setTaskTitle("");
-    setTaskDate("");
-  };
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // =========================
-  // Add Activity
-  // =========================
-  const addActivity = () => {
-    if (!activityTitle.trim()) return;
-
-    const newActivity = {
-      id: Date.now().toString(),
-      title: activityTitle,
-      type: activityType,
-      date: activityDate,
-      time: activityTime,
-      detail: activityDetail,
+    // ===== Reset =====
+    const resetActivityForm = () => {
+        setActivityTitle("");
+        setActivityType("");
+        setActivityDate("");
+        setActivityTime("");
+        setActivityDetail("");
     };
 
-    setActivities([...activities, newActivity]);
-    closeActivityModal();
-  };
-
-  // =========================
-  // Add Task
-  // =========================
-  const addTask = () => {
-    if (!taskTitle.trim()) return;
-
-    const newTask = {
-      id: Date.now().toString(),
-      title: taskTitle,
-      date: taskDate,
-      done: false,
+    const resetTaskForm = () => {
+        setTaskTitle("");
+        setTaskDate("");
     };
 
-    setStudyPlans([...studyPlans, newTask]);
-    closeTaskModal();
-  };
+    // ===== Format เวลา =====
+    const formatTime = (date) => {
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+        return `${hours}:${minutes} น.`;
+    };
 
-  // =========================
-  // Toggle Done
-  // =========================
-  const toggleDone = (id) => {
-    setStudyPlans(
-      studyPlans.map((item) =>
-        item.id === id ? { ...item, done: !item.done } : item
-      )
-    );
-  };
+    const formatDate = (date) => {
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.topHeader}>
-        <Text style={styles.topHeaderText}>
-          Academic Life Planner
-        </Text>
-      </View>
+    // ===== Date Picker =====
+    const onChangeDate = (event, selected) => {
+        setShowDatePicker(false);
+        if (selected) {
+            setSelectedDate(selected);
+            setActivityDate(formatDate(selected));
+        }
+    };
 
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={styles.title}>Activity & Planner</Text>
-        <Text style={styles.subtitle}>
-          กิจกรรมและแผนการเรียน
-        </Text>
+    const onChangeTime = (event, selected) => {
+        setShowTimePicker(false);
+        if (selected) {
+            setSelectedDate(selected);
+            setActivityTime(formatTime(selected));
+        }
+    };
 
-        {/* Toggle */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "activity" && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab("activity")}
-          >
-            <Text
-              style={
-                activeTab === "activity"
-                  ? styles.activeText
-                  : styles.inactiveText
-              }
-            >
-              กิจกรรม
-            </Text>
-          </TouchableOpacity>
+    // ===== Add Activity =====
+    const addActivity = () => {
+        if (!activityTitle.trim()) {
+            Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อกิจกรรม");
+            return;
+        }
 
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "study" && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab("study")}
-          >
-            <Text
-              style={
-                activeTab === "study"
-                  ? styles.activeText
-                  : styles.inactiveText
-              }
-            >
-              แผนการเรียน
-            </Text>
-          </TouchableOpacity>
-        </View>
+        const newActivity = {
+            id: Date.now().toString(),
+            title: activityTitle,
+            type: activityType,
+            date: activityDate,
+            time: activityTime,
+            detail: activityDetail,
+        };
 
-        {/* Add Button */}
-        <View style={{ alignItems: "flex-end", marginBottom: 15 }}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() =>
-              activeTab === "activity"
-                ? setActivityModal(true)
-                : setTaskModal(true)
-            }
-          >
-            <Ionicons name="add" size={18} color="#fff" />
-            <Text style={styles.addText}>
-              {activeTab === "activity"
-                ? " เพิ่มกิจกรรม"
-                : " เพิ่ม Task"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        setActivities([...activities, newActivity]);
+        setActivityModal(false);
+        resetActivityForm();
+    };
 
-        {/* Activity List */}
-        {activeTab === "activity" &&
-          activities.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <Text style={styles.itemTitle}>
-                {item.title}
-              </Text>
-              <Text style={styles.date}>
-                {item.date} {item.time}
-              </Text>
+    const deleteActivity = (id) => {
+        Alert.alert("ลบกิจกรรม", "ต้องการลบใช่หรือไม่?", [
+            { text: "ยกเลิก" },
+            {
+                text: "ลบ",
+                style: "destructive",
+                onPress: () =>
+                    setActivities(activities.filter((item) => item.id !== id)),
+            },
+        ]);
+    };
+
+    // ===== Add Task =====
+    const addTask = () => {
+        if (!taskTitle.trim()) {
+            Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อ Task");
+            return;
+        }
+
+        const newTask = {
+            id: Date.now().toString(),
+            title: taskTitle,
+            date: taskDate,
+            done: false,
+        };
+
+        setStudyPlans([...studyPlans, newTask]);
+        setTaskModal(false);
+        resetTaskForm();
+    };
+
+    const deleteTask = (id) => {
+        Alert.alert("ลบ Task", "ต้องการลบใช่หรือไม่?", [
+            { text: "ยกเลิก" },
+            {
+                text: "ลบ",
+                style: "destructive",
+                onPress: () =>
+                    setStudyPlans(studyPlans.filter((item) => item.id !== id)),
+            },
+        ]);
+    };
+
+    const toggleDone = (id) => {
+        setStudyPlans(
+            studyPlans.map((item) =>
+                item.id === id ? { ...item, done: !item.done } : item
+            )
+        );
+    };
+
+    return (
+        <View style={styles.container}>
+            <View style={styles.topHeader}>
+                <Text style={styles.topHeaderText}>
+                    Academic Life Planner
+                </Text>
             </View>
-          ))}
 
-        {/* Study Plan List */}
-        {activeTab === "study" &&
-          studyPlans.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <TouchableOpacity
-                onPress={() => toggleDone(item.id)}
-              >
-                <Ionicons
-                  name={
-                    item.done
-                      ? "checkbox-outline"
-                      : "square-outline"
-                  }
-                  size={22}
-                  color={item.done ? "green" : "black"}
-                />
-              </TouchableOpacity>
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+                <Text style={styles.title}>Activity & Planner</Text>
+                <Text style={styles.subtitle}>กิจกรรมและแผนการเรียน</Text>
 
-              <View style={{ marginLeft: 10 }}>
-                <Text
-                  style={[
-                    styles.itemTitle,
-                    item.done && {
-                      textDecorationLine:
-                        "line-through",
-                    },
-                  ]}
+                {/* Toggle */}
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === "activity" && styles.activeTab]}
+                        onPress={() => setActiveTab("activity")}
+                    >
+                        <Text style={activeTab === "activity" ? styles.activeText : styles.inactiveText}>
+                            กิจกรรม
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === "study" && styles.activeTab]}
+                        onPress={() => setActiveTab("study")}
+                    >
+                        <Text style={activeTab === "study" ? styles.activeText : styles.inactiveText}>
+                            แผนการเรียน
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Add Button */}
+                <View style={{ alignItems: "flex-end", marginBottom: 15 }}>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() =>
+                            activeTab === "activity"
+                                ? setActivityModal(true)
+                                : setTaskModal(true)
+                        }
+                    >
+                        <Ionicons name="add" size={18} color="#fff" />
+                        <Text style={styles.addText}> เพิ่ม</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Activity List */}
+                {activeTab === "activity" &&
+                    activities.map((item) => (
+                        <View key={item.id} style={styles.card}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.itemTitle}>{item.title}</Text>
+                                <Text style={styles.date}>
+                                    {item.date} {item.time}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity onPress={() => deleteActivity(item.id)}>
+                                <Ionicons name="trash" size={22} color="red" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+
+                {/* Study List */}
+                {activeTab === "study" &&
+                    studyPlans.map((item) => (
+                        <View key={item.id} style={styles.card}>
+                            <TouchableOpacity onPress={() => toggleDone(item.id)}>
+                                <Ionicons
+                                    name={item.done ? "checkbox-outline" : "square-outline"}
+                                    size={22}
+                                    color={item.done ? "green" : "black"}
+                                />
+                            </TouchableOpacity>
+
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text
+                                    style={[
+                                        styles.itemTitle,
+                                        item.done && { textDecorationLine: "line-through" },
+                                    ]}
+                                >
+                                    {item.title}
+                                </Text>
+                                <Text style={styles.date}>{item.date}</Text>
+                            </View>
+
+                            <TouchableOpacity onPress={() => deleteTask(item.id)}>
+                                <Ionicons name="trash" size={22} color="red" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+            </ScrollView>
+
+            {/* ================= Activity Modal ================= */}
+            <Modal visible={activityModal} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.overlay}
+                    activeOpacity={1}
+                    onPress={() => {
+                        setActivityModal(false);
+                        resetActivityForm();
+                    }}
                 >
-                  {item.title}
-                </Text>
-                <Text style={styles.date}>
-                  {item.date}
-                </Text>
-              </View>
-            </View>
-          ))}
-      </ScrollView>
+                    <TouchableOpacity activeOpacity={1} style={styles.modalBox}>
+                        <TouchableOpacity
+                            style={styles.closeIcon}
+                            onPress={() => {
+                                setActivityModal(false);
+                                resetActivityForm();
+                            }}
+                        >
+                            <Ionicons name="close" size={22} />
+                        </TouchableOpacity>
 
-      {/* ================= Activity Modal ================= */}
-      <Modal
-        visible={activityModal}
-        transparent
-        animationType="fade"
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={closeActivityModal}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={styles.modalBox}
-          >
-            <TouchableOpacity
-              style={styles.closeIcon}
-              onPress={closeActivityModal}
-            >
-              <Ionicons name="close" size={22} />
-            </TouchableOpacity>
+                        <Text style={styles.modalTitle}>เพิ่มกิจกรรม</Text>
 
-            <Text style={styles.modalTitle}>
-              เพิ่มกิจกรรม
-            </Text>
+                        <TextInput
+                            placeholder="ชื่อกิจกรรม"
+                            style={styles.modalInput}
+                            value={activityTitle}
+                            onChangeText={setActivityTitle}
+                        />
 
-            <TextInput
-              placeholder="ชื่อกิจกรรม"
-              style={styles.modalInput}
-              value={activityTitle}
-              onChangeText={setActivityTitle}
-            />
-            <TextInput
-              placeholder="ประเภท"
-              style={styles.modalInput}
-              value={activityType}
-              onChangeText={setActivityType}
-            />
-            <TextInput
-              placeholder="วันที่"
-              style={styles.modalInput}
-              value={activityDate}
-              onChangeText={setActivityDate}
-            />
-            <TextInput
-              placeholder="เวลา"
-              style={styles.modalInput}
-              value={activityTime}
-              onChangeText={setActivityTime}
-            />
-            <TextInput
-              placeholder="รายละเอียดเพิ่มเติม"
-              style={styles.modalInput}
-              value={activityDetail}
-              onChangeText={setActivityDetail}
-            />
+                        <TextInput
+                            placeholder="ประเภท"
+                            style={styles.modalInput}
+                            value={activityType}
+                            onChangeText={setActivityType}
+                        />
 
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={addActivity}
-            >
-              <Text style={styles.modalButtonText}>
-                เพิ่ม
-              </Text>
-            </TouchableOpacity>
+                        {/* Date Button */}
+                        <TouchableOpacity
+                            style={styles.modalInput}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <Text>
+                                {activityDate ? activityDate : "เลือกวันที่"}
+                            </Text>
+                        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={closeActivityModal}
-            >
-              <Text style={styles.cancelText}>
-                ยกเลิก
-              </Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+                        {/* Time Button */}
+                        <TouchableOpacity
+                            style={styles.modalInput}
+                            onPress={() => setShowTimePicker(true)}
+                        >
+                            <Text>
+                                {activityTime ? activityTime : "เลือกเวลา"}
+                            </Text>
+                        </TouchableOpacity>
 
-      {/* ================= Task Modal ================= */}
-      <Modal
-        visible={taskModal}
-        transparent
-        animationType="fade"
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={closeTaskModal}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={styles.modalBox}
-          >
-            <TouchableOpacity
-              style={styles.closeIcon}
-              onPress={closeTaskModal}
-            >
-              <Ionicons name="close" size={22} />
-            </TouchableOpacity>
+                        <TextInput
+                            placeholder="รายละเอียด"
+                            style={styles.modalInput}
+                            value={activityDetail}
+                            onChangeText={setActivityDetail}
+                        />
 
-            <Text style={styles.modalTitle}>
-              เพิ่ม Task
-            </Text>
+                        <TouchableOpacity
+                            style={styles.modalButton}
+                            onPress={addActivity}
+                        >
+                            <Text style={styles.modalButtonText}>เพิ่ม</Text>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+            {/* ================= Task Modal ================= */}
+            <Modal visible={taskModal} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.overlay}
+                    activeOpacity={1}
+                    onPress={() => {
+                        setTaskModal(false);
+                        resetTaskForm();
+                    }}
+                >
+                    <TouchableOpacity activeOpacity={1} style={styles.modalBox}>
+                        <TouchableOpacity
+                            style={styles.closeIcon}
+                            onPress={() => {
+                                setTaskModal(false);
+                                resetTaskForm();
+                            }}
+                        >
+                            <Ionicons name="close" size={22} />
+                        </TouchableOpacity>
 
-            <TextInput
-              placeholder="ชื่อ Task"
-              style={styles.modalInput}
-              value={taskTitle}
-              onChangeText={setTaskTitle}
-            />
-            <TextInput
-              placeholder="กำหนดส่ง"
-              style={styles.modalInput}
-              value={taskDate}
-              onChangeText={setTaskDate}
-            />
+                        <Text style={styles.modalTitle}>เพิ่มแผนการเรียน</Text>
 
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={addTask}
-            >
-              <Text style={styles.modalButtonText}>
-                เพิ่ม
-              </Text>
-            </TouchableOpacity>
+                        <TextInput
+                            placeholder="ชื่อแผน / วิชา"
+                            style={styles.modalInput}
+                            value={taskTitle}
+                            onChangeText={setTaskTitle}
+                        />
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={closeTaskModal}
-            >
-              <Text style={styles.cancelText}>
-                ยกเลิก
-              </Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
+                        {/* เลือกวันที่ */}
+                        <TouchableOpacity
+                            style={styles.modalInput}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <Text>
+                                {taskDate ? taskDate : "เลือกวันที่"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalButton}
+                            onPress={addTask}
+                        >
+                            <Text style={styles.modalButtonText}>เพิ่ม</Text>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
+
+            {showDatePicker && (
+                <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display="default"
+                    onChange={onChangeDate}
+                />
+            )}
+
+            {showTimePicker && (
+                <DateTimePicker
+                    value={selectedDate}
+                    mode="time"
+                    display="default"
+                    onChange={onChangeTime}
+                />
+            )}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#EDEDED" },
-
-  topHeader: {
-    backgroundColor: "#ff1e1e",
-    padding: 15,
-  },
-  topHeaderText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  title: { fontSize: 24, fontWeight: "bold" },
-  subtitle: { color: "red", marginBottom: 15 },
-
-  tabContainer: {
-    flexDirection: "row",
-    borderRadius: 25,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "red",
-    marginBottom: 20,
-  },
-  tabButton: {
-    flex: 1,
-    padding: 10,
-    alignItems: "center",
-  },
-  activeTab: { backgroundColor: "red" },
-  activeText: { color: "#fff", fontWeight: "bold" },
-  inactiveText: { color: "black" },
-
-  addButton: {
-    flexDirection: "row",
-    backgroundColor: "#ff3b3b",
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    alignItems: "center",
-  },
-  addText: { color: "#fff", fontWeight: "bold" },
-
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 15,
-  },
-
-  itemTitle: { fontWeight: "bold" },
-  date: { fontSize: 12, color: "#555" },
-
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  modalBox: {
-    width: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-  },
-
-  closeIcon: {
-    position: "absolute",
-    right: 15,
-    top: 15,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#ff69b4",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 15,
-  },
-
-  modalButton: {
-    backgroundColor: "#ff3b8d",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-
-  modalButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-
-  cancelButton: {
-    marginTop: 10,
-    alignItems: "center",
-  },
-
-  cancelText: {
-    color: "red",
-    fontWeight: "bold",
-  },
+    container: { flex: 1, backgroundColor: "#EDEDED" },
+    topHeader: { backgroundColor: "#ff1e1e", padding: 15, paddingTop: 50 },
+    topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 20 },
+    title: { fontSize: 24, fontWeight: "bold" },
+    subtitle: { color: "red", marginBottom: 15 },
+    tabContainer: {
+        flexDirection: "row",
+        borderRadius: 25,
+        overflow: "hidden",
+        borderWidth: 2,
+        borderColor: "red",
+        marginBottom: 20,
+    },
+    tabButton: { flex: 1, padding: 10, alignItems: "center" },
+    activeTab: { backgroundColor: "red" },
+    activeText: { color: "#fff", fontWeight: "bold" },
+    inactiveText: { color: "black" },
+    addButton: {
+        flexDirection: "row",
+        backgroundColor: "#ff3b3b",
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        alignItems: "center",
+    },
+    addText: { color: "#fff", fontWeight: "bold" },
+    card: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#fff",
+        padding: 15,
+        borderRadius: 15,
+        marginBottom: 15,
+    },
+    itemTitle: { fontWeight: "bold" },
+    date: { fontSize: 12, color: "#555" },
+    overlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalBox: {
+        width: "90%",
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        padding: 20,
+    },
+    closeIcon: { position: "absolute", right: 15, top: 15 },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 20,
+    },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: "#ff3b3b",
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 15,
+    },
+    modalButton: {
+        backgroundColor: "#ff3b3b",
+        padding: 15,
+        borderRadius: 10,
+        alignItems: "center",
+    },
+    modalButtonText: { color: "#fff", fontWeight: "bold" },
 });
