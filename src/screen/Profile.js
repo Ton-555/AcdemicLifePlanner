@@ -140,61 +140,30 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  Image
 } from "react-native";
 
-import * as ImagePicker from "expo-image-picker";
-
 export default function Profile() {
-  const [name, setName] = useState();
-  const [faculty, setFaculty] = useState();
-  const [year, setYear] = useState();
-  const [isEditing, setIsEditing] = useState(false);
-  const [image, setImage] = useState(null);
-
-  // 📸 เลือกรูปจากเครื่อง
-  const pickImage = async () => {
-    // ขอ permission
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert("Permission required", "Please allow access to gallery.");
-      return;
-    }
-
-    // เปิด gallery
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  };
+  const [name, setName] = useState("");
+  const [faculty, setFaculty] = useState("");
+  const [year, setYear] = useState("");
 
   const handleSave = () => {
-    setIsEditing(false);
-    Alert.alert("Success", "Profile updated successfully!");
+    Alert.alert("บันทึกสำเร็จ", "ข้อมูลถูกบันทึกเรียบร้อยแล้ว");
   };
 
   const handleClear = () => {
     Alert.alert(
-      "Clear All Data",
-      "Are you sure you want to clear all data?",
+      "ล้างข้อมูลทั้งหมด",
+      "คุณแน่ใจหรือไม่?",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "ยกเลิก", style: "cancel" },
         {
-          text: "Confirm",
+          text: "ยืนยัน",
           style: "destructive",
           onPress: () => {
             setName("");
             setFaculty("");
             setYear("");
-            setImage(null);
           },
         },
       ]
@@ -202,94 +171,106 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Profile</Text>
-
-      {/* 📸 กดที่รูปเพื่อเปลี่ยน */}
-      <TouchableOpacity onPress={pickImage}>
-        <Image
-          style={styles.image}
-          source={
-            image
-              ? { uri: image }
-              : {
-                uri: "https://www.tnsumk.ac.th/reg/images/article/students/stu_male.jpg",
-              }
-          }
-        />
-        <Text style={styles.changeText}>Tap to change photo</Text>
-      </TouchableOpacity>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={[styles.input, !isEditing && styles.disabled]}
-          value={name}
-          onChangeText={setName}
-          editable={isEditing}
-        />
-
-        <Text style={styles.label}>Faculty</Text>
-        <TextInput
-          style={[styles.input, !isEditing && styles.disabled]}
-          value={faculty}
-          onChangeText={setFaculty}
-          editable={isEditing}
-        />
-
-        <Text style={styles.label}>Year</Text>
-        <TextInput
-          style={[styles.input, !isEditing && styles.disabled]}
-          value={year}
-          onChangeText={setYear}
-          editable={isEditing}
-          keyboardType="numeric"
-        />
+    <View style={styles.container}>
+      {/* Header แดงเหมือน Planner */}
+      <View style={styles.topHeader}>
+        <Text style={styles.topHeaderText}>
+          Academic Life Planner
+        </Text>
       </View>
 
-      {!isEditing ? (
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        {/* จัดหัวข้อแบบ Planner */}
+        <Text style={styles.title}>Setting</Text>
+        <Text style={styles.subtitle}>
+          จัดการข้อมูลและการตั้งค่า
+        </Text>
+
+        {/* ================= Card ข้อมูลนิสิต ================= */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>
+            ข้อมูลนิสิต
+          </Text>
+
+          <Text style={styles.label}>
+            ชื่อ-นามสกุล
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+          />
+
+          <Text style={styles.label}>
+            คณะ/สาขา
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={faculty}
+            onChangeText={setFaculty}
+          />
+
+          <Text style={styles.label}>
+            ชั้นปี
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={year}
+            onChangeText={setYear}
+            keyboardType="numeric"
+          />
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSave}
+          >
+            <Text style={styles.buttonText}>
+              บันทึกข้อมูล
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ปุ่มล้างข้อมูล */}
         <TouchableOpacity
-          style={styles.button}
-          onPress={() => setIsEditing(true)}
+          style={styles.clearButton}
+          onPress={handleClear}
         >
-          <Text style={styles.buttonText}>
-            Edit Profile
+          <Text style={styles.clearText}>
+            Clear All Data
           </Text>
         </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={handleSave}
-        >
-          <Text style={styles.buttonText}>
-            Save
-          </Text>
-        </TouchableOpacity>
-      )}
-
-
-      <TouchableOpacity
-        style={styles.dangerButton}
-        onPress={handleClear}
-      >
-        <Text style={styles.dangerText}>Clear All Data</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F6FA",
-    padding: 20,
-    paddingTop: 50
+    backgroundColor: "#EDEDED",
   },
-  header: {
-    fontSize: 26,
+
+  /* Header ด้านบน */
+  topHeader: {
+    backgroundColor: "#ff1e1e",
+    padding: 15,
+  },
+
+  topHeaderText: {
+    color: "#fff",
+    fontSize: 18,
     fontWeight: "bold",
+  },
+
+  /* จัดหัวข้อให้เหมือน Planner */
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+
+  subtitle: {
+    color: "red",
     marginBottom: 20,
-    textAlign: "center",
   },
 >>>>>>> dfb11e6b8390a435576332dff1ea4731d2e3e18f
 
@@ -297,62 +278,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 20,
     borderRadius: 15,
-    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: "red",
     marginBottom: 20,
   },
-  label: {
-    fontSize: 14,
-    marginBottom: 5,
-    color: "#555",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 10,
+
+  sectionTitle: {
+    fontWeight: "bold",
     marginBottom: 15,
-    backgroundColor: "#fff",
   },
-  disabled: {
-    backgroundColor: "#f0f0f0",
-  },
-  dangerButton: {
-    backgroundColor: "#dc3545",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
+
+  label: {
+    marginBottom: 5,
     marginTop: 10,
   },
-  dangerText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  image: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignSelf: "center",
-    marginBottom: 10,
-  },
-  changeText: {
-    textAlign: "center",
-    color: "#3A6FF7",
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: "#3A6FF7",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 10,
+
+  input: {
+    backgroundColor: "#f08080",
+    padding: 12,
+    borderRadius: 10,
   },
 
   saveButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: "#ff3b3b",
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
-    marginBottom: 10,
+    marginTop: 20,
   },
 
   buttonText: {
@@ -360,4 +312,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  clearButton: {
+    backgroundColor: "#dc3545",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  clearText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
