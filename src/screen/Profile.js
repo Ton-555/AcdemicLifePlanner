@@ -10,11 +10,38 @@ import {
   Image
 } from "react-native";
 
+import * as ImagePicker from "expo-image-picker";
+
 export default function Profile() {
-  const [name, setName] = useState("Paul Tesmasa");
-  const [faculty, setFaculty] = useState("Computer Engineering");
-  const [year, setYear] = useState("3");
+  const [name, setName] = useState();
+  const [faculty, setFaculty] = useState();
+  const [year, setYear] = useState();
   const [isEditing, setIsEditing] = useState(false);
+  const [image, setImage] = useState(null);
+
+  // 📸 เลือกรูปจากเครื่อง
+  const pickImage = async () => {
+    // ขอ permission
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      Alert.alert("Permission required", "Please allow access to gallery.");
+      return;
+    }
+
+    // เปิด gallery
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
 
   const handleSave = () => {
     setIsEditing(false);
@@ -34,6 +61,7 @@ export default function Profile() {
             setName("");
             setFaculty("");
             setYear("");
+            setImage(null);
           },
         },
       ]
@@ -44,10 +72,20 @@ export default function Profile() {
     <ScrollView style={styles.container}>
       <Text style={styles.header}>Profile</Text>
 
-      <Image
-        style={styles.image}
-        source={{ uri: "https://www.tnsumk.ac.th/reg/images/article/students/stu_male.jpg" }}
-      />
+      {/* 📸 กดที่รูปเพื่อเปลี่ยน */}
+      <TouchableOpacity onPress={pickImage}>
+        <Image
+          style={styles.image}
+          source={
+            image
+              ? { uri: image }
+              : {
+                uri: "https://www.tnsumk.ac.th/reg/images/article/students/stu_male.jpg",
+              }
+          }
+        />
+        <Text style={styles.changeText}>Tap to change photo</Text>
+      </TouchableOpacity>
 
       <View style={styles.card}>
         <Text style={styles.label}>Name</Text>
@@ -76,21 +114,26 @@ export default function Profile() {
         />
       </View>
 
-      {/* {!isEditing ? (
+      {!isEditing ? (
         <TouchableOpacity
           style={styles.button}
           onPress={() => setIsEditing(true)}
         >
-          <Text style={styles.buttonText}>Edit Profile</Text>
+          <Text style={styles.buttonText}>
+            Edit Profile
+          </Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={styles.saveButton}
           onPress={handleSave}
         >
-          <Text style={styles.buttonText}>Save</Text>
+          <Text style={styles.buttonText}>
+            Save
+          </Text>
         </TouchableOpacity>
-      )} */}
+      )}
+
 
       <TouchableOpacity
         style={styles.dangerButton}
@@ -107,12 +150,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F6FA",
     padding: 20,
+    paddingTop: 50
   },
   header: {
     fontSize: 26,
     fontWeight: "bold",
     marginBottom: 20,
+    textAlign: "center",
   },
+
   card: {
     backgroundColor: "#fff",
     padding: 20,
@@ -136,6 +182,29 @@ const styles = StyleSheet.create({
   disabled: {
     backgroundColor: "#f0f0f0",
   },
+  dangerButton: {
+    backgroundColor: "#dc3545",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  dangerText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  image: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignSelf: "center",
+    marginBottom: 10,
+  },
+  changeText: {
+    textAlign: "center",
+    color: "#3A6FF7",
+    marginBottom: 20,
+  },
   button: {
     backgroundColor: "#3A6FF7",
     padding: 15,
@@ -143,6 +212,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+
   saveButton: {
     backgroundColor: "#28a745",
     padding: 15,
@@ -150,27 +220,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
   },
-  dangerButton: {
-    backgroundColor: "#dc3545",
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 150
-  },
-  dangerText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  image: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignSelf: "center",
-    marginBottom: 10,
-  }
 
 });
