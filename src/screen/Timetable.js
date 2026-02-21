@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -6,14 +6,7 @@ const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
 };
 
-const initial_class_data = [
-  { title: 'Math', startTime: genTimeBlock('MON', 9, 0, '2025-02-24'), endTime: genTimeBlock('MON', 10, 50, '2025-02-24'), location: 'Classroom 403', extra_descriptions: ['Kim', 'Lee'] },
-  { title: 'Mandarin', startTime: genTimeBlock('TUE', 9, 0, '2025-02-25'), endTime: genTimeBlock('TUE', 10, 50, '2025-02-25'), location: 'Language Center', extra_descriptions: ['Chen'] },
-];
-
-const initial_exam_data = [
-  { title: 'สอบกลางภาค: Math', startTime: genTimeBlock('MON', 9, 0, '2025-02-24'), endTime: genTimeBlock('MON', 11, 0, '2025-02-24'), location: 'ห้องสอบ A101', extra_descriptions: ['ห้ามนำเครื่องคิดเลขเข้าห้องสอบ'] },
-];
+import timetableStore from '../data/TimetableStore'
 
 const dayMap = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -21,9 +14,16 @@ const Timetable = () => {
   const [selTable, setSelTable] = useState(1);
   const [selDay, setDay] = useState(1);
   const [selExamDay, setExamDay] = useState(1); // วันที่เลือกสำหรับตารางสอบ
+  const [classes, setClasses] = useState(timetableStore.getClasses());
+  const [exams, setExams] = useState(timetableStore.getExams());
 
-  const [classes, setClasses] = useState(initial_class_data);
-  const [exams, setExams] = useState(initial_exam_data);
+  useEffect(() => {
+    const unsub = timetableStore.subscribe(({ classes: nc, exams: ne }) => {
+      setClasses(nc);
+      setExams(ne);
+    });
+    return () => unsub();
+  }, []);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
@@ -191,19 +191,15 @@ const Timetable = () => {
 
     if (selTable === 1) {
       if (isEditMode) {
-        const updatedClasses = [...classes];
-        updatedClasses[editIndex] = newItem;
-        setClasses(updatedClasses);
+        timetableStore.updateClass(editIndex, newItem);
       } else {
-        setClasses([...classes, newItem]);
+        timetableStore.addClass(newItem);
       }
     } else {
       if (isEditMode) {
-        const updatedExams = [...exams];
-        updatedExams[editIndex] = newItem;
-        setExams(updatedExams);
+        timetableStore.updateExam(editIndex, newItem);
       } else {
-        setExams([...exams, newItem]);
+        timetableStore.addExam(newItem);
       }
     }
 
@@ -245,13 +241,9 @@ const Timetable = () => {
       {
         text: "ลบ", style: "destructive", onPress: () => {
           if (selTable === 1) {
-            const updatedClasses = [...classes];
-            updatedClasses.splice(editIndex, 1);
-            setClasses(updatedClasses);
+            timetableStore.deleteClass(editIndex);
           } else {
-            const updatedExams = [...exams];
-            updatedExams.splice(editIndex, 1);
-            setExams(updatedExams);
+            timetableStore.deleteExam(editIndex);
           }
           handleCancelModal();
         }
