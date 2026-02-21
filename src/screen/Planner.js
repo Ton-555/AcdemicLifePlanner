@@ -8,7 +8,7 @@ import {
     ScrollView,
     Modal,
     Alert,
-    Platform,
+    Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -16,115 +16,65 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 export default function Planner() {
     const [activeTab, setActiveTab] = useState("activity");
 
-    // States ข้อมูล
-    const [activities, setActivities] = useState([]);
+    // ===== ข้อมูลกิจกรรมเสริม =====
+    const initialActivities = [
+        {
+            id: "1",
+            title: "Job Fair 2026",
+            date: "20 ก.พ. 2026",
+            time: "09:00 - 16:00 น.",
+            location: "ห้องคอนเวนชั่น มก.กำแพงแสน",
+            image: "https://kps.ku.ac.th/v8/images/Satang/2569/Feb/613324.jpg", 
+        },
+        {
+            id: "2",
+            title: "Lib Learn Life",
+            date: "3 ก.พ. 2026",
+            time: "10:00 - 20:00 น.",
+            location: "สวนด้านหน้าสำนักงานบริหารจัดการการเรียนรู้",
+            image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/619260339_1478488657612149_5296629279182397039_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=13d280&_nc_ohc=qR7mPQGZClMQ7kNvwEL92rU&_nc_oc=AdnJBDo4a61UNuFLUHbLTwC2SYj3GWHzPiPTEod5IoW-Zef6-6qsCOVDkxcL1yWBi3Q&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=tHQ8DPCH0jEyNAkT2etBTw&oh=00_Afuq72HN_dDhdD8d6KI9D5ZXmuEhk_GuVFDv58VvA8N_xA&oe=699FA1F4",
+        },
+        {
+            id: "3",
+            title: "Music In The Garden",
+            date: "10 มี.ค. 2026",
+            time: "11:00 - 18:00 น.",
+            location: "สนามกีฬาหลักและลานอเนกประสงค์กลาง",
+            image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/637807135_1231482309166679_4376201818258179145_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=pA5JcaCdhP8Q7kNvwEcnPR3&_nc_oc=AdkU2731yA-yO_oua-sPLFU5jGgeWNgKgOuKdcHIgvAkW7IHobascF_18z15ENQtLKE&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=kVL4f4vCTsn1UbtfGDSWQA&oh=00_AfuVsaad4mr_m2XAKO0x7sFs1UyHVGKkmNN-r0MRB9jLhg&oe=699FA8CA",
+        },
+    ];
+
     const [studyPlans, setStudyPlans] = useState([]);
-
-    // States สำหรับ Modal
-    const [activityModal, setActivityModal] = useState(false);
     const [taskModal, setTaskModal] = useState(false);
-
-    // States สำหรับ Form กิจกรรม
-    const [activityTitle, setActivityTitle] = useState("");
-    const [activityType, setActivityType] = useState("ทั่วไป"); // หมวดหมู่กิจกรรม
-    const [activityDate, setActivityDate] = useState("");
-    const [activityTime, setActivityTime] = useState("");
-    const [activityDetail, setActivityDetail] = useState("");
-
-    // States สำหรับ Form แผนการเรียน
     const [taskTitle, setTaskTitle] = useState("");
     const [taskDate, setTaskDate] = useState("");
-
-    // Date/Time Picker
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [pickerMode, setPickerMode] = useState("activity"); // 'activity' หรือ 'task'
 
-    // ===== Helper Functions =====
-    const resetActivityForm = () => {
-        setActivityTitle("");
-        setActivityType("ทั่วไป");
-        setActivityDate("");
-        setActivityTime("");
-        setActivityDetail("");
-    };
-
-    const resetTaskForm = () => {
-        setTaskTitle("");
-        setTaskDate("");
-    };
-
-    const formatTime = (date) => {
-        return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
-    };
-
+    const resetTaskForm = () => { setTaskTitle(""); setTaskDate(""); };
     const formatDate = (date) => {
         return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-    // ===== Date/Time Picker Handlers =====
     const onDateChange = (event, selected) => {
         setShowDatePicker(false);
         if (selected) {
             setSelectedDate(selected);
-            const dateStr = formatDate(selected);
-            if (pickerMode === "activity") setActivityDate(dateStr);
-            else setTaskDate(dateStr);
+            setTaskDate(formatDate(selected));
         }
     };
 
-    const onTimeChange = (event, selected) => {
-        setShowTimePicker(false);
-        if (selected) {
-            setSelectedDate(selected);
-            setActivityTime(formatTime(selected));
-        }
-    };
-
-    // ===== Logic: เพิ่ม/ลบ กิจกรรม =====
-    const addActivity = () => {
-        if (!activityTitle.trim() || !activityDate) {
-            Alert.alert("ข้อมูลไม่ครบ", "กรุณากรอกชื่อกิจกรรมและเลือกวันที่");
-            return;
-        }
-
-        const newActivity = {
-            id: Date.now().toString(),
-            title: activityTitle,
-            type: activityType,
-            date: activityDate,
-            time: activityTime,
-            detail: activityDetail,
-            createdAt: new Date(),
-        };
-
-        setActivities([newActivity, ...activities]);
-        setActivityModal(false);
-        resetActivityForm();
-    };
-
-    const deleteActivity = (id) => {
-        Alert.alert("ลบกิจกรรม", "คุณต้องการลบกิจกรรมนี้ใช่หรือไม่?", [
-            { text: "ยกเลิก" },
-            { text: "ลบ", style: "destructive", onPress: () => setActivities(activities.filter(a => a.id !== id)) }
-        ]);
-    };
-
-    // ===== Logic: เพิ่ม/ลบ แผนการเรียน (Task) =====
     const addTask = () => {
         if (!taskTitle.trim()) {
             Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อแผนการเรียน");
             return;
         }
-
         const newTask = {
             id: Date.now().toString(),
             title: taskTitle,
             date: taskDate || "ไม่ระบุวัน",
             done: false,
         };
-
         setStudyPlans([newTask, ...studyPlans]);
         setTaskModal(false);
         resetTaskForm();
@@ -134,12 +84,9 @@ export default function Planner() {
         setStudyPlans(studyPlans.map(item => item.id === id ? { ...item, done: !item.done } : item));
     };
 
-    // สถิติสำหรับ Study Plan
-    const pendingTasks = studyPlans.filter(t => !t.done).length;
-
     return (
         <View style={styles.container}>
-            {/* Header Section */}
+            {/* Header */}
             <View style={styles.topHeader}>
                 <View>
                     <Text style={styles.brandText}>StudySync</Text>
@@ -148,176 +95,123 @@ export default function Planner() {
                 <Ionicons name="pulse-outline" size={28} color="#fff" />
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-                <Text style={styles.title}>Activity & Planner</Text>
-                <Text style={styles.subtitle}>จัดการตารางชีวิตและเป้าหมายการเรียน</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <View style={{ padding: 20 }}>
+                    <Text style={styles.title}>Activity & Planner</Text>
+                    
+                    {/* Tab Switcher */}
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                            style={[styles.tabButton, activeTab === "activity" && styles.activeTab]}
+                            onPress={() => setActiveTab("activity")}
+                        >
+                            <Text style={activeTab === "activity" ? styles.activeTabText : styles.inactiveTabText}>กิจกรรมเสริม</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tabButton, activeTab === "study" && styles.activeTab]}
+                            onPress={() => setActiveTab("study")}
+                        >
+                            <Text style={activeTab === "study" ? styles.activeTabText : styles.inactiveTabText}>เช็คลิสต์การเรียน</Text>
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Tab Switcher */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === "activity" && styles.activeTab]}
-                        onPress={() => setActiveTab("activity")}
-                    >
-                        <Text style={activeTab === "activity" ? styles.activeTabText : styles.inactiveTabText}>กิจกรรมเสริม</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === "study" && styles.activeTab]}
-                        onPress={() => setActiveTab("study")}
-                    >
-                        <Text style={activeTab === "study" ? styles.activeTabText : styles.inactiveTabText}>เช็คลิสต์การเรียน</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Summary Mini-Card */}
-                {activeTab === "study" && studyPlans.length > 0 && (
-                    <View style={styles.summaryCard}>
-                        <Ionicons name="book" size={20} color="#ff3b3b" />
-                        <Text style={styles.summaryText}>
-                            เหลืออีก {pendingTasks} งานที่ต้องทำให้สำเร็จ!
+                    {/* Section Content */}
+                    <View style={styles.listHeader}>
+                        <Text style={styles.sectionTitle}>
+                            {activeTab === "activity" ? "กิจกรรมแนะนำสำหรับคุณ" : "แผนการเรียนของฉัน"}
                         </Text>
+                        {activeTab === "study" && (
+                            <TouchableOpacity style={styles.addButton} onPress={() => setTaskModal(true)}>
+                                <Ionicons name="add" size={20} color="#fff" />
+                                <Text style={styles.addText}> เพิ่มแผน</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
-                )}
 
-                {/* List Content */}
-                <View style={styles.listHeader}>
-                    <Text style={styles.sectionTitle}>
-                        {activeTab === "activity" ? "รายการกิจกรรม" : "แผนที่วางไว้"}
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => {
-                            if (activeTab === "activity") {
-                                setPickerMode("activity");
-                                setActivityModal(true);
-                            } else {
-                                setPickerMode("task");
-                                setTaskModal(true);
-                            }
-                        }}
-                    >
-                        <Ionicons name="add" size={20} color="#fff" />
-                        <Text style={styles.addText}> เพิ่มใหม่</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Activity Render */}
-                {activeTab === "activity" && activities.map((item) => (
-                    <View key={item.id} style={styles.card}>
-                        <View style={styles.typeIndicator} />
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.itemTitle}>{item.title}</Text>
-                            <View style={styles.row}>
-                                <Ionicons name="time-outline" size={14} color="#666" />
-                                <Text style={styles.dateText}> {item.date} | {item.time || "ไม่ระบุเวลา"}</Text>
-                            </View>
-                            <Text style={styles.typeTag}>{item.type}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => deleteActivity(item.id)}>
-                            <Ionicons name="trash-outline" size={20} color="#ff3b3b" />
-                        </TouchableOpacity>
-                    </View>
-                ))}
-
-                {/* Study Plan Render */}
-                {activeTab === "study" && studyPlans.map((item) => (
-                    <View key={item.id} style={[styles.card, item.done && { opacity: 0.6 }]}>
-                        <TouchableOpacity onPress={() => toggleDone(item.id)}>
-                            <Ionicons
-                                name={item.done ? "checkmark-circle" : "ellipse-outline"}
-                                size={26}
-                                color={item.done ? "#4CAF50" : "#ff3b3b"}
+                    {/* Activity Section */}
+                    {activeTab === "activity" && initialActivities.map((item) => (
+                        <View key={item.id} style={styles.largeCard}>
+                            {/* ปรับปรุงส่วนรูปภาพให้เต็มความกว้างและสัดส่วนคงที่ */}
+                            <Image 
+                                source={{ uri: item.image }} 
+                                style={styles.cardImage} 
+                                resizeMode="cover" 
                             />
-                        </TouchableOpacity>
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                            <Text style={[styles.itemTitle, item.done && { textDecorationLine: "line-through" }]}>
-                                {item.title}
-                            </Text>
-                            <Text style={styles.dateText}>{item.date}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => setStudyPlans(studyPlans.filter(t => t.id !== item.id))}>
-                            <Ionicons name="close-circle-outline" size={22} color="#ccc" />
-                        </TouchableOpacity>
-                    </View>
-                ))}
+                            <View style={styles.cardContent}>
+                                <Text style={styles.largeCardTitle}>{item.title}</Text>
+                                
+                                <View style={styles.locationContainer}>
+                                    <Ionicons name="location-outline" size={16} color="#666" />
+                                    <Text style={styles.locationText}>{item.location}</Text>
+                                </View>
 
-                {/* Empty State */}
-                {((activeTab === "activity" && activities.length === 0) || 
-                  (activeTab === "study" && studyPlans.length === 0)) && (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="clipboard-outline" size={50} color="#ccc" />
-                        <Text style={styles.emptyText}>ยังไม่มีข้อมูลในส่วนนี้</Text>
-                    </View>
-                )}
+                                <View style={styles.cardFooter}>
+                                    <View style={styles.footerItem}>
+                                        <Ionicons name="calendar-outline" size={14} color="#ff3b3b" />
+                                        <Text style={styles.footerText}> {item.date}</Text>
+                                    </View>
+                                    <View style={styles.footerItem}>
+                                        <Ionicons name="time-outline" size={14} color="#ff3b3b" />
+                                        <Text style={styles.footerText}> {item.time}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    ))}
+
+                    {/* Study Plan Section */}
+                    {activeTab === "study" && studyPlans.map((item) => (
+                        <View key={item.id} style={[styles.taskCard, item.done && { opacity: 0.6 }]}>
+                            <TouchableOpacity onPress={() => toggleDone(item.id)}>
+                                <Ionicons
+                                    name={item.done ? "checkmark-circle" : "ellipse-outline"}
+                                    size={24}
+                                    color={item.done ? "#4CAF50" : "#ff3b3b"}
+                                />
+                            </TouchableOpacity>
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                <Text style={[styles.taskTitle, item.done && { textDecorationLine: "line-through" }]}>
+                                    {item.title}
+                                </Text>
+                                <Text style={styles.taskDate}>{item.date}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setStudyPlans(studyPlans.filter(t => t.id !== item.id))}>
+                                <Ionicons name="trash-outline" size={18} color="#ccc" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+
+                    {activeTab === "study" && studyPlans.length === 0 && (
+                        <View style={styles.emptyContainer}>
+                            <Ionicons name="document-text-outline" size={60} color="#ddd" />
+                            <Text style={styles.emptyText}>ยังไม่มีแผนการเรียน กดปุ่ม 'เพิ่มแผน' ได้เลย</Text>
+                        </View>
+                    )}
+                </View>
             </ScrollView>
 
-            {/* Modal: Activity */}
-            <Modal visible={activityModal} transparent animationType="slide">
+            {/* Modal for adding Task */}
+            <Modal visible={taskModal} transparent animationType="fade">
                 <View style={styles.overlay}>
                     <View style={styles.modalBox}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>เพิ่มกิจกรรมใหม่</Text>
-                            <TouchableOpacity onPress={() => setActivityModal(false)}>
-                                <Ionicons name="close" size={24} color="#333" />
-                            </TouchableOpacity>
-                        </View>
-
+                        <Text style={styles.modalTitle}>สร้างแผนการเรียนใหม่</Text>
                         <TextInput
-                            placeholder="เช่น ประชุมสโมสร, งานสัมมนา"
-                            style={styles.modalInput}
-                            value={activityTitle}
-                            onChangeText={setActivityTitle}
-                        />
-
-                        <View style={styles.row}>
-                            <TouchableOpacity style={[styles.modalInput, { flex: 1, marginRight: 5 }]} onPress={() => setShowDatePicker(true)}>
-                                <Text style={{ color: activityDate ? "#000" : "#999" }}>
-                                    {activityDate || "วันที่"}
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalInput, { flex: 1, marginLeft: 5 }]} onPress={() => setShowTimePicker(true)}>
-                                <Text style={{ color: activityTime ? "#000" : "#999" }}>
-                                    {activityTime || "เวลา"}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TextInput
-                            placeholder="ประเภทกิจกรรม (เช่น งานกลุ่ม, แข่งขัน)"
-                            style={styles.modalInput}
-                            value={activityType}
-                            onChangeText={setActivityType}
-                        />
-
-                        <TouchableOpacity style={styles.saveButton} onPress={addActivity}>
-                            <Text style={styles.saveButtonText}>บันทึกกิจกรรม</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Modal: Study Task */}
-            <Modal visible={taskModal} transparent animationType="slide">
-                <View style={styles.overlay}>
-                    <View style={styles.modalBox}>
-                        <Text style={styles.modalTitle}>เพิ่มแผนการเรียน / Task</Text>
-                        <TextInput
-                            placeholder="เช่น อ่านบทที่ 1, ทำ Lab ฟิสิกส์"
+                            placeholder="เช่น อ่านหนังสือสอบ Midterm"
                             style={styles.modalInput}
                             value={taskTitle}
                             onChangeText={setTaskTitle}
                         />
                         <TouchableOpacity style={styles.modalInput} onPress={() => setShowDatePicker(true)}>
                             <Text style={{ color: taskDate ? "#000" : "#999" }}>
-                                {taskDate || "กำหนดส่ง / วันที่ทำ"}
+                                {taskDate || "ระบุวันที่"}
                             </Text>
                         </TouchableOpacity>
-
                         <View style={styles.row}>
-                            <TouchableOpacity style={[styles.saveButton, { flex: 1, backgroundColor: "#ccc", marginRight: 10 }]} onPress={() => setTaskModal(false)}>
-                                <Text style={styles.saveButtonText}>ยกเลิก</Text>
+                            <TouchableOpacity style={[styles.btn, { backgroundColor: "#eee" }]} onPress={() => setTaskModal(false)}>
+                                <Text style={{ color: "#666" }}>ปิด</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.saveButton, { flex: 2 }]} onPress={addTask}>
-                                <Text style={styles.saveButtonText}>เพิ่มแผน</Text>
+                            <TouchableOpacity style={[styles.btn, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={addTask}>
+                                <Text style={{ color: "#fff", fontWeight: "bold" }}>บันทึก</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -328,17 +222,8 @@ export default function Planner() {
                 <DateTimePicker
                     value={selectedDate}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display="default"
                     onChange={onDateChange}
-                />
-            )}
-
-            {showTimePicker && (
-                <DateTimePicker
-                    value={selectedDate}
-                    mode="time"
-                    display="clock"
-                    onChange={onTimeChange}
                 />
             )}
         </View>
@@ -346,115 +231,87 @@ export default function Planner() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F8F9FA" },
+    container: { flex: 1, backgroundColor: "#FDFDFD" },
     topHeader: { 
         backgroundColor: "#ff3b3b", 
-        paddingHorizontal: 20, 
+        paddingHorizontal: 25, 
         paddingTop: 60, 
-        paddingBottom: 20,
+        paddingBottom: 25,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        elevation: 5,
+        borderBottomLeftRadius: 35,
+        borderBottomRightRadius: 35,
     },
-    brandText: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "bold", letterSpacing: 1 },
-    topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 22 },
-    title: { fontSize: 26, fontWeight: "800", color: "#1a1a1a", marginTop: 10 },
-    subtitle: { color: "#ff3b3b", fontSize: 14, marginBottom: 20 },
+    brandText: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: "bold", letterSpacing: 1.2 },
+    topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 24 },
+    title: { fontSize: 28, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
     tabContainer: {
         flexDirection: "row",
-        backgroundColor: "#E9ECEF",
-        borderRadius: 15,
-        padding: 5,
-        marginBottom: 20,
+        backgroundColor: "#F1F3F5",
+        borderRadius: 20,
+        padding: 6,
+        marginBottom: 25,
     },
-    tabButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 12 },
-    activeTab: { backgroundColor: "#fff", elevation: 2 },
+    tabButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 16 },
+    activeTab: { backgroundColor: "#fff", elevation: 3, shadowOpacity: 0.1 },
     activeTabText: { color: "#ff3b3b", fontWeight: "bold" },
-    inactiveTabText: { color: "#6c757d" },
-    summaryCard: {
-        backgroundColor: "#fff",
-        padding: 15,
-        borderRadius: 15,
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 20,
-        borderLeftWidth: 5,
-        borderLeftColor: "#ff3b3b",
-        elevation: 2,
-    },
-    summaryText: { marginLeft: 10, fontWeight: "600", color: "#333" },
-    listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-    sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
+    inactiveTabText: { color: "#adb5bd" },
+    listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: "700", color: "#444" },
     addButton: {
         flexDirection: "row",
         backgroundColor: "#ff3b3b",
         paddingVertical: 8,
         paddingHorizontal: 15,
-        borderRadius: 10,
+        borderRadius: 12,
         alignItems: "center",
-        elevation: 3,
     },
     addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-    card: {
+    
+    // Activity Large Card ปรับปรุงความกว้างให้เต็มที่
+    largeCard: {
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        marginBottom: 25,
+        width: '100%', // ให้การ์ดเต็มหน้าจอ
+        overflow: "hidden",
+        elevation: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+    },
+    cardImage: { 
+        width: '100%', 
+        aspectRatio: 16 / 9, // บังคับสัดส่วนภาพให้สวยงามแบบ Wide Screen
+    },
+    cardContent: { padding: 20 },
+    largeCardTitle: { fontSize: 20, fontWeight: "bold", color: "#222", marginBottom: 8 },
+    locationContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+    locationText: { fontSize: 14, color: "#666", marginLeft: 4, flex: 1 },
+    cardFooter: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F1F1F1", paddingTop: 15 },
+    footerItem: { flexDirection: "row", alignItems: "center", marginRight: 20 },
+    footerText: { fontSize: 13, color: "#444", fontWeight: "500" },
+
+    taskCard: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#fff",
-        padding: 16,
-        borderRadius: 16,
+        padding: 18,
+        borderRadius: 18,
         marginBottom: 12,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-    },
-    typeIndicator: { width: 4, height: 40, backgroundColor: "#ff3b3b", borderRadius: 2, marginRight: 15 },
-    itemTitle: { fontSize: 16, fontWeight: "700", color: "#2d3436", marginBottom: 4 },
-    row: { flexDirection: "row", alignItems: "center" },
-    dateText: { fontSize: 13, color: "#636e72" },
-    typeTag: { 
-        backgroundColor: "#F1F3F5", 
-        color: "#495057", 
-        fontSize: 11, 
-        paddingHorizontal: 8, 
-        paddingVertical: 2, 
-        borderRadius: 5,
-        marginTop: 6,
-        alignSelf: 'flex-start'
-    },
-    emptyContainer: { alignItems: "center", marginTop: 40, opacity: 0.5 },
-    emptyText: { marginTop: 10, color: "#999" },
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        justifyContent: "flex-end",
-    },
-    modalBox: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        padding: 25,
-        paddingBottom: 40,
-    },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
-    modalInput: {
-        backgroundColor: "#F8F9FA",
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 15,
-        fontSize: 16,
         borderWidth: 1,
-        borderColor: "#E9ECEF",
+        borderColor: "#F1F1F1",
     },
-    saveButton: {
-        backgroundColor: "#ff3b3b",
-        padding: 16,
-        borderRadius: 12,
-        alignItems: "center",
-        marginTop: 10,
-    },
-    saveButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+    taskTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
+    taskDate: { fontSize: 12, color: "#999", marginTop: 2 },
+    
+    emptyContainer: { alignItems: "center", marginTop: 50 },
+    emptyText: { color: "#999", marginTop: 15, textAlign: "center" },
+    overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
+    modalBox: { backgroundColor: "#fff", borderRadius: 25, padding: 25 },
+    modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+    modalInput: { backgroundColor: "#F8F9FA", borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: "#EEE" },
+    row: { flexDirection: "row" },
+    btn: { flex: 1, padding: 15, borderRadius: 12, alignItems: "center" },
 });
