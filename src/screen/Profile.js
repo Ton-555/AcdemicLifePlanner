@@ -77,7 +77,7 @@ export default function Profile() {
           <Text style={styles.brandText}>StudySync</Text>
           <Text style={styles.topHeaderText}>Academic Life Planner</Text>
         </View>
-        <Ionicons name="settings-outline" size={26} color="#fff" />
+        <Ionicons name="person-outline" size={26} color="#fff" />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
