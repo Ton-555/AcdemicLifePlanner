@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 40 },
   titleSection: { marginBottom: 20 },
   title: { fontSize: 28, fontWeight: "800", color: "#1a1a1a" },
-  subtitle: { color: "#ff3b3b", fontSize: 14, fontWeight: "600" },
+  subtitle: { color: "#666", fontSize: 14, },
   
   /* Avatar Styles */
   avatarSection: { alignItems: "center", marginBottom: 25 },
