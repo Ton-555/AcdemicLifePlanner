@@ -111,7 +111,6 @@ export default function Planner() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Section Content */}
                     <View style={styles.listHeader}>
                         <Text style={styles.sectionTitle}>
                             {activeTab === "activity" ? "กิจกรรมแนะนำสำหรับคุณ" : "แผนการเรียนของฉัน"}

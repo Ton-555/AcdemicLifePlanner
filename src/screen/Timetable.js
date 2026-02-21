@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
+import timetableStore from '../data/TimetableStore'
 
 const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
 };
-
-import timetableStore from '../data/TimetableStore'
 
 const dayMap = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 const Timetable = () => {
   const [selTable, setSelTable] = useState(1);
   const [selDay, setDay] = useState(1);
-  const [selExamDay, setExamDay] = useState(1); // วันที่เลือกสำหรับตารางสอบ
+  const [selExamDay, setExamDay] = useState(1);
   const [classes, setClasses] = useState(timetableStore.getClasses());
   const [exams, setExams] = useState(timetableStore.getExams());
 
@@ -31,8 +31,8 @@ const Timetable = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newLocation, setNewLocation] = useState('');
-  const [newDay, setNewDay] = useState(selDay); // วันที่เลือก
-  const [newExtraDescriptions, setNewExtraDescriptions] = useState(''); // หมายเหตุเพิ่มเติม
+  const [newDay, setNewDay] = useState(selDay);
+  const [newExtraDescriptions, setNewExtraDescriptions] = useState('');
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -47,17 +47,16 @@ const Timetable = () => {
   const [endTimeStr, setEndTimeStr] = useState("");
 
   const formatDateToString = (dateObj) => {
-    // ใช้ local time แทน toISOString() ซึ่งเป็น UTC เพื่อไม่ให้วันที่เคลื่อน
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
 
-  // ฟังก์ชันหาวันจากวันที่ (MON, TUE, WED, ...)
+
   const getDayFromDate = (dateObj) => {
-    const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 1 = Monday, ...
-    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // แปลงให้ Monday = 0
+    const dayOfWeek = dateObj.getDay();
+    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     return dayMap[dayIndex];
   };
 
@@ -98,21 +97,19 @@ const Timetable = () => {
   const displayData = currentDataList
     .filter(item => item.startTime.day === selectedDayString)
     .sort((a, b) => {
-      // จัดเรียงตามวันที่ (date) ก่อน
       if (a.startTime.date && b.startTime.date) {
         const dateCompare = a.startTime.date.localeCompare(b.startTime.date);
         if (dateCompare !== 0) {
           return dateCompare;
         }
       }
-      
-      // จากนั้นจัดเรียงตามเวลา
+
       const [aHr, aMin] = a.startTime.time.split(':').map(Number);
       const [bHr, bMin] = b.startTime.time.split(':').map(Number);
-      
+
       const aTotalMinutes = aHr * 60 + aMin;
       const bTotalMinutes = bHr * 60 + bMin;
-      
+
       return aTotalMinutes - bTotalMinutes;
     });
 
@@ -120,18 +117,12 @@ const Timetable = () => {
     const actualIndex = (selTable === 1 ? classes : exams).indexOf(item);
     setIsEditMode(true);
     setEditIndex(actualIndex);
-
     setNewTitle(item.title);
     setNewLocation(item.location);
-
-    // Set day from item
     const dayIdx = dayMap.indexOf(item.startTime.day);
     setNewDay(dayIdx + 1);
-
-    // Set extra descriptions
     setNewExtraDescriptions(item.extra_descriptions.join(', '));
 
-    // Parse Existed Times
     const [startHr, startMin] = item.startTime.time.split(':').map(Number);
     const [endHr, endMin] = item.endTime.time.split(':').map(Number);
 
@@ -146,7 +137,6 @@ const Timetable = () => {
     setEndTimeStr(formatDisplayTime(eTime));
 
     if (selTable === 2 && item.startTime.date) {
-      // Parse date string YYYY-MM-DD
       const [year, month, day] = item.startTime.date.split('-').map(Number);
       const dObj = new Date(year, month - 1, day);
       setSelectedDate(dObj);
@@ -165,7 +155,6 @@ const Timetable = () => {
       return;
     }
 
-    // Validation: End time must be after Start time
     const startTotalMinutes = startTimeObj.getHours() * 60 + startTimeObj.getMinutes();
     const endTotalMinutes = endTimeObj.getHours() * 60 + endTimeObj.getMinutes();
 
@@ -253,40 +242,53 @@ const Timetable = () => {
 
   return (
     <View style={styles.containner}>
-      <Text style={styles.hearderText}>Table</Text>
-
-      <View style={styles.toggleButton}>
-        <TouchableOpacity style={[styles.selTableButton, selTable === 1 && styles.activeSelTableButton]} onPress={() => setSelTable(1)}>
-          <Text style={selTable === 1 ? styles.activeText : styles.inActiveText}>ตารางเรียน</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.selTableButton, selTable === 2 && styles.activeSelTableButton]} onPress={() => setSelTable(2)}>
-          <Text style={selTable === 2 ? styles.activeText : styles.inActiveText}>ตารางสอบ</Text>
-        </TouchableOpacity>
+      <View style={styles.topHeader}>
+        <View>
+          <Text style={styles.topHeaderText}>Academic Life Planner</Text>
+        </View>
+        <Ionicons name="calendar" size={26} color="#fff" />
       </View>
-      <View style={{ padding: 10 }} />
 
-      <View style={styles.toggleDayButton}>
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
-          const dayNumber = index + 1;
-          const isActive = selTable === 1 ? (selDay === dayNumber) : (selExamDay === dayNumber);
-          return (
-            <TouchableOpacity
-              key={dayNumber}
-              style={[styles.selDayButton, isActive && styles.activeSelDayButton]}
-              onPress={() => {
-                if (selTable === 1) {
-                  setDay(dayNumber);
-                } else {
-                  setExamDay(dayNumber);
-                }
-              }}
-            >
-              <Text style={isActive ? styles.fontDayActive : styles.fontDayInActive}>{dayName}</Text>
-            </TouchableOpacity>
-          )
-        })}
+      <View style={{ padding: 20 }} >
+        <Text style={styles.title}>Time table</Text>
+        <View style={styles.toggleButton}>
+
+          <TouchableOpacity style={[styles.selTableButton, selTable === 1 && styles.activeSelTableButton]} onPress={() => setSelTable(1)}>
+            <Text style={selTable === 1 ? styles.activeText : styles.inActiveText}>ตารางเรียน</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.selTableButton, selTable === 2 && styles.activeSelTableButton]} onPress={() => setSelTable(2)}>
+            <Text style={selTable === 2 ? styles.activeText : styles.inActiveText}>ตารางสอบ</Text>
+          </TouchableOpacity>
+        </View>
+
+
+        <View style={{ padding: 10 }} />
+
+        <View style={styles.toggleDayButton}>
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
+            const dayNumber = index + 1;
+            const isActive = selTable === 1 ? (selDay === dayNumber) : (selExamDay === dayNumber);
+            return (
+              <TouchableOpacity
+                key={dayNumber}
+                style={[styles.selDayButton, isActive && styles.activeSelDayButton]}
+                onPress={() => {
+                  if (selTable === 1) {
+                    setDay(dayNumber);
+                  } else {
+                    setExamDay(dayNumber);
+                  }
+                }}
+              >
+                <Text style={isActive ? styles.fontDayActive : styles.fontDayInActive}>{dayName}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
       </View>
+
+
 
       <ScrollView style={styles.listContainer}>
         {displayData.length > 0 ? (
@@ -320,7 +322,6 @@ const Timetable = () => {
             <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
 
-            {/* เลือกวัน - ตารางเรียนเท่านั้น */}
             {selTable === 1 && (
               <>
                 <Text style={styles.inputLabel}>เลือกวัน:</Text>
@@ -339,7 +340,6 @@ const Timetable = () => {
                   })}
                 </View>
 
-                {/* หมายเหตุเพิ่มเติม - ตารางเรียนเท่านั้น */}
                 <TextInput
                   style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                   placeholder="หมายเหตุเพิ่มเติม (เช่น ต้องเตรียม A4 สีขาว)"
@@ -358,7 +358,6 @@ const Timetable = () => {
                   </Text>
                 </TouchableOpacity>
 
-                {/* หมายเหตุเพิ่มเติม - ตารางสอบ */}
                 <TextInput
                   style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                   placeholder="หมายเหตุเพิ่มเติม (เช่น ห้ามนำเครื่องคิดเลข)"
@@ -432,18 +431,33 @@ const Timetable = () => {
 }
 
 const styles = StyleSheet.create({
-  containner: { flex: 1, backgroundColor: '#FFF0F6', alignItems: 'center' },
+  containner: { flex: 1, backgroundColor: '#F8F9FA', alignItems: 'center' },
+  topHeader: {
+    width: '100%',
+    backgroundColor: "#ff3b3b",
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 5,
+  },
+  title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
+  topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 24 },
   hearderText: { fontSize: 24, fontWeight: 'bold', paddingTop: 10, paddingBottom: 10 },
-  toggleButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: 220, paddingVertical: 5, backgroundColor: 'white', borderRadius: 10 },
-  selTableButton: { width: 100, height: 45, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5 },
-  activeSelTableButton: { backgroundColor: 'lightblue' },
-  activeText: { color: 'black' },
+  toggleButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: 220, paddingVertical: 5, backgroundColor: "#F1F3F5", borderRadius: 10 },
+  selTableButton: { width: 100, height: 45, backgroundColor: "white", justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5, elevation: 3, shadowOpacity: 0.1 },
+  activeSelTableButton: { backgroundColor: "white" },
+  activeText: { color: "#ff3b3b", fontWeight: "bold" },
   inActiveText: { color: 'grey' },
-  toggleDayButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '95%', paddingVertical: 5, backgroundColor: 'white', borderRadius: 10 },
-  selDayButton: { width: 40, height: 45, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 2 },
-  fontDayActive: { fontSize: 12, color: 'black', fontWeight: 'bold' },
+  toggleDayButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '95%', paddingVertical: 5, backgroundColor: '#F1F3F5', borderRadius: 10 },
+  selDayButton: { width: 40, height: 45, backgroundColor: '#F1F3F5', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 2 },
+  fontDayActive: { fontSize: 12, color: "#ff3b3b", fontWeight: 'bold' },
   fontDayInActive: { fontSize: 10, color: 'grey' },
-  activeSelDayButton: { width: 50, height: 50, backgroundColor: 'lightblue', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5 },
+  activeSelDayButton: { width: 50, height: 50, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5 },
   listContainer: { width: '90%', marginTop: 20 },
   card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
   cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
@@ -452,7 +466,7 @@ const styles = StyleSheet.create({
   cardLocation: { fontSize: 14, color: '#666' },
   cardExtra: { fontSize: 12, color: '#d9534f', marginTop: 8, fontStyle: 'italic' },
   noDataText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' },
-  fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#007AFF', borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 } },
+  fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: "#ff3b3b", borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 } },
   fabText: { fontSize: 30, color: 'white', fontWeight: 'bold', marginTop: -2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', maxHeight: '90%', backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 5 },
