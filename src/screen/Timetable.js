@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native'
-
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
+import DateTimePicker from "@react-native-community/datetimepicker";
 const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${hour}:${minute === 0 ? '00' : minute}`, date: date };
 };
@@ -30,46 +30,58 @@ const Timetable = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newLocation, setNewLocation] = useState('');
   const [newDay, setNewDay] = useState(selDay); // วันที่เลือก
-  const [selectedDate, setSelectedDate] = useState({
-    day: 21,
-    month: 2,
-    year: 2026
-  }); // วันที่แยก day, month, year
-  const [tempDate, setTempDate] = useState({ day: 21, month: 2, year: 2026 }); // temporary date สำหรับ date picker
-  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
-  const [startHr, setStartHr] = useState('');
-  const [startMin, setStartMin] = useState('00');
-  const [endHr, setEndHr] = useState('');
-  const [endMin, setEndMin] = useState('00');
 
-  // ฟังก์ชันแปลง day, month, year เป็น string format YYYY-MM-DD
-  const formatDateToString = (day, month, year) => {
-    const dayStr = String(day).padStart(2, '0');
-    const monthStr = String(month).padStart(2, '0');
-    return `${year}-${monthStr}-${dayStr}`;
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activityDateStr, setActivityDateStr] = useState("");
+
+  // เวลาเริ่มต้นและเวลาสิ้นสุด
+  const [startTimeObj, setStartTimeObj] = useState(new Date());
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [startTimeStr, setStartTimeStr] = useState("");
+
+  const [endTimeObj, setEndTimeObj] = useState(new Date());
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [endTimeStr, setEndTimeStr] = useState("");
+
+  // ฟังก์ชันแปลง Date เป็น YYYY-MM-DD สำหรับบันทึก
+  const formatDateToString = (dateObj) => {
+    return dateObj.toISOString().split('T')[0];
   };
 
-  // ฟังก์ชันได้จำนวนวันในเดือน
-  const getDaysInMonth = (month, year) => {
-    const daysInMonth = [31, (year % 4 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    return daysInMonth[month - 1];
+  // ฟังก์ชันสไตล์ Planner.js สำหรับแสดงผล (แสดงในปุ่ม)
+  const formatDisplayTime = (date) => {
+    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
   };
 
-  // เปิด date picker
-  const handleOpenDatePicker = () => {
-    setTempDate({ ...selectedDate });
-    setDatePickerVisible(true);
+  const formatDisplayDate = (date) => {
+    return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  // ปิด date picker
-  const handleCloseDatePicker = () => {
-    setDatePickerVisible(false);
+  // Handler วันที่
+  const onChangeDate = (event, selected) => {
+    setShowDatePicker(false);
+    if (selected) {
+      setSelectedDate(selected);
+      setActivityDateStr(formatDisplayDate(selected));
+    }
   };
 
-  // บันทึกวัน/เดือน/ปี ที่เลือก
-  const handleConfirmDate = () => {
-    setSelectedDate({ ...tempDate });
-    setDatePickerVisible(false);
+  // Handler เวลา
+  const onChangeStartTime = (event, selectedTime) => {
+    setShowStartTimePicker(false);
+    if (selectedTime) {
+      setStartTimeObj(selectedTime);
+      setStartTimeStr(formatDisplayTime(selectedTime));
+    }
+  };
+
+  const onChangeEndTime = (event, selectedTime) => {
+    setShowEndTimePicker(false);
+    if (selectedTime) {
+      setEndTimeObj(selectedTime);
+      setEndTimeStr(formatDisplayTime(selectedTime));
+    }
   };
 
   // กระบวนการกรองข้อมูล (Filter)
@@ -79,19 +91,19 @@ const Timetable = () => {
 
   // ฟังก์ชันสำหรับบันทึกข้อมูลใหม่
   const handleSaveData = () => {
-    if (!newTitle || !startHr || !endHr) {
+    if (!newTitle || !startTimeStr || !endTimeStr) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อวิชา เวลาเริ่ม และเวลาสิ้นสุด");
       return;
     }
 
     const selectedDay = dayMap[newDay - 1];
-    const dateString = formatDateToString(selectedDate.day, selectedDate.month, selectedDate.year);
+    const dateString = formatDateToString(selectedDate);
 
     // สร้าง Object ข้อมูลใหม่ตามรูปแบบเดิม
     const newItem = {
       title: newTitle,
-      startTime: genTimeBlock(selectedDay, parseInt(startHr), parseInt(startMin), dateString),
-      endTime: genTimeBlock(selectedDay, parseInt(endHr), parseInt(endMin), dateString),
+      startTime: genTimeBlock(selectedDay, startTimeObj.getHours(), startTimeObj.getMinutes(), dateString),
+      endTime: genTimeBlock(selectedDay, endTimeObj.getHours(), endTimeObj.getMinutes(), dateString),
       location: newLocation || 'ไม่ระบุสถานที่',
       extra_descriptions: [] // ปล่อยว่างไว้ก่อน
     };
@@ -107,11 +119,12 @@ const Timetable = () => {
     setNewTitle('');
     setNewLocation('');
     setNewDay(selDay);
-    setSelectedDate({ day: 21, month: 2, year: 2026 });
-    setStartHr('');
-    setStartMin('00');
-    setEndHr('');
-    setEndMin('00');
+    setSelectedDate(new Date());
+    setActivityDateStr("");
+    setStartTimeObj(new Date());
+    setStartTimeStr("");
+    setEndTimeObj(new Date());
+    setEndTimeStr("");
     setModalVisible(false);
   };
 
@@ -165,7 +178,7 @@ const Timetable = () => {
       </ScrollView>
 
       {/* ปุ่มบวก (+) ขวาล่างสำหรับเพิ่มข้อมูล */}
-      <TouchableOpacity style={styles.fab} onPress={() => { setSelectedDate({ day: 21, month: 2, year: 2026 }); setModalVisible(true); }}>
+      <TouchableOpacity style={styles.fab} onPress={() => { setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setModalVisible(true); }}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -178,8 +191,17 @@ const Timetable = () => {
             <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
 
+            {/* เลือกวันที่ (ถ้าเป็นตารางสอบ) */}
+            {selTable === 2 && (
+              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                <Text style={{ color: activityDateStr ? "#000" : "#999" }}>
+                  {activityDateStr || "วันที่สอบ"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* เลือกวัน */}
-            <Text style={styles.inputLabel}>เลือกวัน:</Text>
+            <Text style={styles.inputLabel}>เลือกวันทำการ:</Text>
             <View style={styles.daySelectContainer}>
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
                 const dayNumber = index + 1;
@@ -195,138 +217,59 @@ const Timetable = () => {
               })}
             </View>
 
-            {/* เลือกวันที่ */}
-            <Text style={styles.inputLabel}>เลือกวันที่:</Text>
-            <TouchableOpacity style={styles.dateDisplayButton} onPress={handleOpenDatePicker}>
-              <Text style={styles.dateDisplayButtonText}>
-                {formatDateToString(selectedDate.day, selectedDate.month, selectedDate.year)}
-              </Text>
-              <Text style={styles.dateDisplayButtonSubtext}>แตะเพื่อเลือกวัน</Text>
-            </TouchableOpacity>
-
-            {/* เวลาเริ่มเรียน */}
-            <Text style={styles.inputLabel}>เวลาเริ่ม:</Text>
+            {/* เวลาเริ่มเรียน และ เวลาสิ้นสุด */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <TextInput style={[styles.input, { width: '48%' }]} placeholder="ชั่วโมง (เช่น 09)" keyboardType="numeric" value={startHr} onChangeText={setStartHr} maxLength={2} />
-              <TextInput style={[styles.input, { width: '48%' }]} placeholder="นาที (เช่น 00, 30)" keyboardType="numeric" value={startMin} onChangeText={setStartMin} maxLength={2} />
-            </View>
-
-            {/* เวลาสิ้นสุด */}
-            <Text style={styles.inputLabel}>เวลาสิ้นสุด:</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <TextInput style={[styles.input, { width: '48%' }]} placeholder="ชั่วโมง (เช่น 10)" keyboardType="numeric" value={endHr} onChangeText={setEndHr} maxLength={2} />
-              <TextInput style={[styles.input, { width: '48%' }]} placeholder="นาที (เช่น 00, 50)" keyboardType="numeric" value={endMin} onChangeText={setEndMin} maxLength={2} />
+              <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5 }]} onPress={() => setShowStartTimePicker(true)}>
+                <Text style={{ color: startTimeStr ? "#000" : "#999" }}>
+                  {startTimeStr || "เวลาเริ่ม"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.input, { flex: 1, marginLeft: 5 }]} onPress={() => setShowEndTimePicker(true)}>
+                <Text style={{ color: endTimeStr ? "#000" : "#999" }}>
+                  {endTimeStr || "เวลาสิ้นสุด"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 }}>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={() => setModalVisible(false)}>
-                <Text>ยกเลิก</Text>
+              <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#ccc", marginRight: 10 }]} onPress={() => setModalVisible(false)}>
+                <Text style={{ fontWeight: 'bold' }}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#007AFF' }]} onPress={handleSaveData}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>บันทึก</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal สำหรับ Date Picker */}
-      <Modal visible={isDatePickerVisible} animationType="slide" transparent={true}>
-        <View style={styles.datePickerModalOverlay}>
-          <View style={styles.datePickerModalContent}>
-            <Text style={styles.datePickerModalHeader}>เลือกวันที่</Text>
-
-            <View style={styles.datePickerScrollRow}>
-              {/* วัน */}
-              <View style={styles.datePickerColumn}>
-                <Text style={styles.datePickerColumnLabel}>วัน</Text>
-                <ScrollView
-                  style={styles.datePickerScroll}
-                  showsVerticalScrollIndicator={false}
-                  scrollEventThrottle={16}
-                  snapToInterval={40}
-                  decelerationRate="fast"
-                >
-                  {Array.from({ length: getDaysInMonth(tempDate.month, tempDate.year) }, (_, i) => i + 1).map((day) => (
-                    <TouchableOpacity
-                      key={day}
-                      style={[styles.datePickerItem, tempDate.day === day && styles.datePickerItemActive]}
-                      onPress={() => setTempDate({ ...tempDate, day })}
-                    >
-                      <Text style={[styles.datePickerItemText, tempDate.day === day && styles.datePickerItemActiveText]}>
-                        {String(day).padStart(2, '0')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* เดือน */}
-              <View style={styles.datePickerColumn}>
-                <Text style={styles.datePickerColumnLabel}>เดือน</Text>
-                <ScrollView
-                  style={styles.datePickerScroll}
-                  showsVerticalScrollIndicator={false}
-                  scrollEventThrottle={16}
-                  snapToInterval={40}
-                  decelerationRate="fast"
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                    <TouchableOpacity
-                      key={month}
-                      style={[styles.datePickerItem, tempDate.month === month && styles.datePickerItemActive]}
-                      onPress={() => {
-                        const maxDay = getDaysInMonth(month, tempDate.year);
-                        setTempDate({ ...tempDate, month, day: Math.min(tempDate.day, maxDay) });
-                      }}
-                    >
-                      <Text style={[styles.datePickerItemText, tempDate.month === month && styles.datePickerItemActiveText]}>
-                        {String(month).padStart(2, '0')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* ปี */}
-              <View style={styles.datePickerColumn}>
-                <Text style={styles.datePickerColumnLabel}>ปี</Text>
-                <ScrollView
-                  style={styles.datePickerScroll}
-                  showsVerticalScrollIndicator={false}
-                  scrollEventThrottle={16}
-                  snapToInterval={40}
-                  decelerationRate="fast"
-                >
-                  {Array.from({ length: 30 }, (_, i) => 2020 + i).map((year) => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[styles.datePickerItem, tempDate.year === year && styles.datePickerItemActive]}
-                      onPress={() => {
-                        const maxDay = getDaysInMonth(tempDate.month, year);
-                        setTempDate({ ...tempDate, year, day: Math.min(tempDate.day, maxDay) });
-                      }}
-                    >
-                      <Text style={[styles.datePickerItemText, tempDate.year === year && styles.datePickerItemActiveText]}>
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-
-            <View style={styles.datePickerButtonContainer}>
-              <TouchableOpacity style={[styles.datePickerButton, { backgroundColor: '#ccc' }]} onPress={handleCloseDatePicker}>
-                <Text style={styles.datePickerButtonText}>ยกเลิก</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.datePickerButton, { backgroundColor: '#007AFF' }]} onPress={handleConfirmDate}>
-                <Text style={[styles.datePickerButtonText, { color: 'white', fontWeight: 'bold' }]}>ตกลง</Text>
+              <TouchableOpacity style={[styles.modalButton, { flex: 2, backgroundColor: '#007AFF' }]} onPress={handleSaveData}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>บันทึกรายการ</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Date/Time Pickers (ซ่อนอยู่และจะแสดงเมื่อถูกเรียก) */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onChangeDate}
+        />
+      )}
+
+      {showStartTimePicker && (
+        <DateTimePicker
+          value={startTimeObj}
+          mode="time"
+          display="default"
+          onChange={onChangeStartTime}
+        />
+      )}
+
+      {showEndTimePicker && (
+        <DateTimePicker
+          value={endTimeObj}
+          mode="time"
+          display="default"
+          onChange={onChangeEndTime}
+        />
+      )}
     </View>
   );
 }
