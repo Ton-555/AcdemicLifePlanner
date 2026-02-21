@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
 import DateTimePicker from "@react-native-community/datetimepicker";
+
 const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
 };
@@ -19,6 +20,7 @@ const dayMap = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const Timetable = () => {
   const [selTable, setSelTable] = useState(1);
   const [selDay, setDay] = useState(1);
+  const [selExamDay, setExamDay] = useState(1); // วันที่เลือกสำหรับตารางสอบ
 
   const [classes, setClasses] = useState(initial_class_data);
   const [exams, setExams] = useState(initial_exam_data);
@@ -92,11 +94,19 @@ const Timetable = () => {
   };
 
   const currentDataList = selTable === 1 ? classes : exams;
-  const selectedDayString = dayMap[selDay - 1];
+  const selectedDayString = selTable === 1 ? dayMap[selDay - 1] : dayMap[selExamDay - 1];
   const displayData = currentDataList
     .filter(item => item.startTime.day === selectedDayString)
     .sort((a, b) => {
-      // แปลง time string "HH:MM" เป็นตัวเลข นาทีเพื่อจัดเรียง
+      // จัดเรียงตามวันที่ (date) ก่อน
+      if (a.startTime.date && b.startTime.date) {
+        const dateCompare = a.startTime.date.localeCompare(b.startTime.date);
+        if (dateCompare !== 0) {
+          return dateCompare;
+        }
+      }
+      
+      // จากนั้นจัดเรียงตามเวลา
       const [aHr, aMin] = a.startTime.time.split(':').map(Number);
       const [bHr, bMin] = b.startTime.time.split(':').map(Number);
       
@@ -164,7 +174,7 @@ const Timetable = () => {
       return;
     }
 
-    const selectedDay = dayMap[newDay - 1];
+    const selectedDay = selTable === 1 ? dayMap[newDay - 1] : getDayFromDate(selectedDate);
     const dateString = formatDateToString(selectedDate);
     const extraDescArray = newExtraDescriptions
       .split(',')
@@ -267,9 +277,20 @@ const Timetable = () => {
       <View style={styles.toggleDayButton}>
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
           const dayNumber = index + 1;
+          const isActive = selTable === 1 ? (selDay === dayNumber) : (selExamDay === dayNumber);
           return (
-            <TouchableOpacity key={dayNumber} style={[styles.selDayButton, selDay === dayNumber && styles.activeSelDayButton]} onPress={() => setDay(dayNumber)}>
-              <Text style={selDay === dayNumber ? styles.fontDayActive : styles.fontDayInActive}>{dayName}</Text>
+            <TouchableOpacity
+              key={dayNumber}
+              style={[styles.selDayButton, isActive && styles.activeSelDayButton]}
+              onPress={() => {
+                if (selTable === 1) {
+                  setDay(dayNumber);
+                } else {
+                  setExamDay(dayNumber);
+                }
+              }}
+            >
+              <Text style={isActive ? styles.fontDayActive : styles.fontDayInActive}>{dayName}</Text>
             </TouchableOpacity>
           )
         })}

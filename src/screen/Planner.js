@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     brandText: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "bold", letterSpacing: 1 },
     topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 22 },
     title: { fontSize: 26, fontWeight: "800", color: "#1a1a1a", marginTop: 10 },
-    subtitle: { color: "#666", fontSize: 14, marginBottom: 20 },
+    subtitle: { color: "#ff3b3b", fontSize: 14, marginBottom: 20 },
     tabContainer: {
         flexDirection: "row",
         backgroundColor: "#E9ECEF",
