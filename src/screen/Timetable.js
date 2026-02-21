@@ -29,6 +29,8 @@ const Timetable = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newLocation, setNewLocation] = useState('');
+  const [newDay, setNewDay] = useState(selDay); // วันที่เลือก
+  const [newExtraDescriptions, setNewExtraDescriptions] = useState(''); // หมายเหตุเพิ่มเติม
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -112,6 +114,13 @@ const Timetable = () => {
     setNewTitle(item.title);
     setNewLocation(item.location);
 
+    // Set day from item
+    const dayIdx = dayMap.indexOf(item.startTime.day);
+    setNewDay(dayIdx + 1);
+
+    // Set extra descriptions
+    setNewExtraDescriptions(item.extra_descriptions.join(', '));
+
     // Parse Existed Times
     const [startHr, startMin] = item.startTime.time.split(':').map(Number);
     const [endHr, endMin] = item.endTime.time.split(':').map(Number);
@@ -155,15 +164,19 @@ const Timetable = () => {
       return;
     }
 
-    const selectedDay = getDayFromDate(selectedDate);
+    const selectedDay = dayMap[newDay - 1];
     const dateString = formatDateToString(selectedDate);
+    const extraDescArray = newExtraDescriptions
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0);
 
     const newItem = {
       title: newTitle,
       startTime: genTimeBlock(selectedDay, startTimeObj.getHours(), startTimeObj.getMinutes(), dateString),
       endTime: genTimeBlock(selectedDay, endTimeObj.getHours(), endTimeObj.getMinutes(), dateString),
       location: newLocation || 'ไม่ระบุสถานที่',
-      extra_descriptions: isEditMode && currentDataList[editIndex]?.extra_descriptions ? currentDataList[editIndex].extra_descriptions : []
+      extra_descriptions: extraDescArray
     };
 
     if (selTable === 1) {
@@ -189,6 +202,8 @@ const Timetable = () => {
 
     setNewTitle('');
     setNewLocation('');
+    setNewDay(selDay);
+    setNewExtraDescriptions('');
     setSelectedDate(new Date());
     setActivityDateStr("");
     setStartTimeObj(new Date());
@@ -201,6 +216,16 @@ const Timetable = () => {
   const handleCancelModal = () => {
     setIsEditMode(false);
     setEditIndex(null);
+    setNewTitle('');
+    setNewLocation('');
+    setNewDay(selDay);
+    setNewExtraDescriptions('');
+    setSelectedDate(new Date());
+    setActivityDateStr("");
+    setStartTimeObj(new Date());
+    setStartTimeStr("");
+    setEndTimeObj(new Date());
+    setEndTimeStr("");
     setModalVisible(false);
   };
 
@@ -240,7 +265,7 @@ const Timetable = () => {
       <View style={{ padding: 10 }} />
 
       <View style={styles.toggleDayButton}>
-        {['จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'].map((dayName, index) => {
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
           const dayNumber = index + 1;
           return (
             <TouchableOpacity key={dayNumber} style={[styles.selDayButton, selDay === dayNumber && styles.activeSelDayButton]} onPress={() => setDay(dayNumber)}>
@@ -270,7 +295,7 @@ const Timetable = () => {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => { setIsEditMode(false); setEditIndex(null); setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setNewTitle(''); setNewLocation(''); setModalVisible(true); }}>
+      <TouchableOpacity style={styles.fab} onPress={() => { setIsEditMode(false); setEditIndex(null); setNewTitle(''); setNewLocation(''); setNewDay(selDay); setNewExtraDescriptions(''); setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setModalVisible(true); }}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -281,6 +306,36 @@ const Timetable = () => {
 
             <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
+
+            {/* เลือกวัน - ตารางเรียนเท่านั้น */}
+            {selTable === 1 && (
+              <>
+                <Text style={styles.inputLabel}>เลือกวัน:</Text>
+                <View style={styles.daySelectContainer}>
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
+                    const dayNumber = index + 1;
+                    return (
+                      <TouchableOpacity
+                        key={dayNumber}
+                        style={[styles.daySelectButton, newDay === dayNumber && styles.activeSelectDayButton]}
+                        onPress={() => setNewDay(dayNumber)}
+                      >
+                        <Text style={[styles.daySelectText, newDay === dayNumber && styles.activeSelectDayText]}>{dayName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* หมายเหตุเพิ่มเติม - ตารางเรียนเท่านั้น */}
+                <TextInput
+                  style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                  placeholder="หมายเหตุเพิ่มเติม (เช่น ต้องเตรียม A4 สีขาว)"
+                  value={newExtraDescriptions}
+                  onChangeText={setNewExtraDescriptions}
+                  multiline={true}
+                />
+              </>
+            )}
 
             {selTable === 2 && (
               <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
