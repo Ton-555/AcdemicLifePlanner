@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import timetableStore from '../data/TimetableStore'
+import timetableStore from '../data/TimetableStore';
 
 const genTimeBlock = (day, hour, minute, date = null) => {
     return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
@@ -53,11 +54,11 @@ const Dashboard = ({ navigation }) => {
         setQuickEndTimeStr("");
         setModalVisible(false);
     };
+
     const [classes, setClasses] = useState(timetableStore.getClasses());
     const [exams, setExams] = useState(timetableStore.getExams());
     const [nowMs, setNowMs] = useState(Date.now());
 
-    // convert item -> timestamp for sorting
     const itemToSortable = (item) => {
         try {
             if (!item || !item.startTime) return 0;
@@ -92,14 +93,12 @@ const Dashboard = ({ navigation }) => {
     const sortedClasses = (classes || []).slice().sort((a, b) => itemToSortable(a) - itemToSortable(b));
     const sortedExams = (exams || []).slice().sort((a, b) => itemToSortable(a) - itemToSortable(b));
 
-    // pick next upcoming or the most recent past item if none upcoming
     const pickNextOrRecent = (list) => {
         const now = new Date(nowMs).getTime();
         if (!list || list.length === 0) return { next: null, recent: null };
         const mapped = list.map(item => ({ item, ts: itemToSortable(item) }));
         const upcoming = mapped.filter(m => m.ts > now).sort((x, y) => x.ts - y.ts);
         if (upcoming.length > 0) return { next: upcoming[0].item, recent: null };
-        // no upcoming: find the most recent past (largest ts <= now)
         const past = mapped.filter(m => m.ts <= now).sort((x, y) => y.ts - x.ts);
         return { next: null, recent: past.length > 0 ? past[0].item : null };
     };
@@ -160,7 +159,6 @@ const Dashboard = ({ navigation }) => {
             return formatDuration(start.getTime() - now.getTime());
         }
         if (end && end.getTime() > now.getTime()) {
-            // in progress
             const ms = end.getTime() - now.getTime();
             const totalMinutes = Math.floor(ms / 60000);
             const hours = Math.floor(totalMinutes / 60);
@@ -216,51 +214,74 @@ const Dashboard = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-
-                {/* Top Bar */}
-                <View style={styles.topBar}>
-                    <Text style={styles.topBarTitle}>Academic Life</Text>
+            {/* Top Header — matches Planner & Profile */}
+            <View style={styles.topHeader}>
+                <View>
+                    <Text style={styles.topHeaderText}>Academic Life Planner</Text>
                 </View>
+                <Ionicons name="home-outline" size={26} color="#fff" />
+            </View>
 
-                {/* Header Row */}
-                <View style={styles.headerRow}>
-                    <View>
-                        <Text style={styles.pageTitle}>Dashboard</Text>
-                        <Text style={styles.subtitle}>ตารางเรียนและตารางสอบ</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.headerQuickAdd} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
-                        <Text style={styles.headerQuickAddText}>＋ เพิ่มด่วน</Text>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* Page Title Row */}
+                <View style={styles.titleRow}>
+                    <Text style={styles.title}>Dashboard</Text>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => { resetQuickAdd(); setModalVisible(true); }}
+                    >
+                        <Ionicons name="add" size={20} color="#fff" />
+                        <Text style={styles.addText}> เพิ่มด่วน</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Next Class (single upcoming or most recent past) */}
-                <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timetable', { selTable: 1 })}>
-                    <Text style={styles.cardTitle}>Next Class</Text>
+                {/* Next Class Card */}
+                <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => navigation.navigate('Timetable', { selTable: 1 })}
+                    activeOpacity={0.85}
+                >
+                    <View style={styles.cardHeader}>
+                        <Ionicons name="book-outline" size={18} color="#ff3b3b" />
+                        <Text style={styles.cardTitle}> Next Class</Text>
+                    </View>
+
                     {nextClass || recentClass ? (
                         (() => {
                             const c = nextClass || recentClass;
                             const timeStr = timeUntil(c);
                             const isEnded = timeStr === 'Ended';
                             return (
-                                <View key={`cls-0`} style={{ marginBottom: 8 }}>
+                                <View style={{ marginTop: 6 }}>
                                     <Text style={styles.subject}>{c.title}</Text>
-                                    <Text style={[styles.time, isEnded && { color: '#000' }]}>{c.startTime.time} - {c.endTime.time}</Text>
-                                    <Text style={[styles.countdown, isEnded && { color: '#C3002F' }]}>
-                                        {timeStr}
+                                    <Text style={styles.timeText}>
+                                        {c.startTime.time} – {c.endTime.time}
                                     </Text>
+                                    <View style={[styles.badge, isEnded && styles.badgeEnded]}>
+                                        <Text style={[styles.badgeText, isEnded && styles.badgeTextEnded]}>
+                                            {timeStr}
+                                        </Text>
+                                    </View>
                                 </View>
                             );
                         })()
                     ) : (
-                        <Text style={styles.subject}>ไม่มีรายการ</Text>
+                        <View style={styles.emptyRow}>
+                            <Ionicons name="calendar-outline" size={32} color="#ddd" />
+                            <Text style={styles.emptyText}>ไม่มีรายการ</Text>
+                        </View>
                     )}
                 </TouchableOpacity>
 
-                {/* Upcoming Exams */}
+                {/* Upcoming Exams Card */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Upcoming Exams</Text>
+                    <View style={styles.cardHeader}>
+                        <Ionicons name="document-text-outline" size={18} color="#ff3b3b" />
+                        <Text style={styles.cardTitle}> Upcoming Exams</Text>
+                    </View>
 
                     {nextExam || recentExam ? (
                         (() => {
@@ -268,26 +289,35 @@ const Dashboard = ({ navigation }) => {
                             const timeStr = timeUntil(ex);
                             const isEnded = timeStr === 'Ended';
                             return (
-                                <TouchableOpacity key={`ex-0`} style={styles.examItem} onPress={() => navigation.navigate('Timetable', { selTable: 2 })}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.examText}>{ex.title}</Text>
-                                        <Text style={[styles.examDate, isEnded && { color: '#222' }]}>{ex.startTime.date || ex.startTime.time}</Text>
+                                <TouchableOpacity
+                                    style={styles.examItem}
+                                    onPress={() => navigation.navigate('Timetable', { selTable: 2 })}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={{ flex: 1, marginTop: 6 }}>
+                                        <Text style={styles.subject}>{ex.title}</Text>
+                                        <Text style={styles.timeText}>
+                                            {ex.startTime.date || ex.startTime.time}
+                                        </Text>
                                     </View>
-                                    <Text style={[styles.countdown, { alignSelf: 'center' }, isEnded && { color: '#C3002F' }]}>
-                                        {timeStr}
-                                    </Text>
+                                    <View style={[styles.badge, isEnded && styles.badgeEnded]}>
+                                        <Text style={[styles.badgeText, isEnded && styles.badgeTextEnded]}>
+                                            {timeStr}
+                                        </Text>
+                                    </View>
                                 </TouchableOpacity>
                             );
                         })()
                     ) : (
-                        <Text style={{ color: '#666' }}>ไม่มีรายการ</Text>
+                        <View style={styles.emptyRow}>
+                            <Ionicons name="clipboard-outline" size={32} color="#ddd" />
+                            <Text style={styles.emptyText}>ไม่มีรายการ</Text>
+                        </View>
                     )}
                 </View>
-
             </ScrollView>
 
-            {/* Removed bottom FAB (now header Quick Add) */}
-
+            {/* Quick Add Modal */}
             <Modal
                 visible={modalVisible}
                 animationType="slide"
@@ -299,29 +329,35 @@ const Dashboard = ({ navigation }) => {
                         <Text style={styles.modalTitle}>เพิ่มด่วน</Text>
 
                         {/* Type Toggle */}
-                        <View style={{ flexDirection: "row", marginBottom: 12 }}>
+                        <View style={styles.tabContainer}>
                             <TouchableOpacity
-                                style={[styles.typeButton, quickType === "Activity" && styles.typeButtonActive]}
+                                style={[styles.tabButton, quickType === "Activity" && styles.activeTab]}
                                 onPress={() => setQuickType("Activity")}
                             >
-                                <Text style={[styles.typeButtonText, quickType === "Activity" && styles.typeButtonTextActive]}>ตารางเรียน</Text>
+                                <Text style={quickType === "Activity" ? styles.activeTabText : styles.inactiveTabText}>
+                                    ตารางเรียน
+                                </Text>
                             </TouchableOpacity>
-
                             <TouchableOpacity
-                                style={[styles.typeButton, quickType === "Task" && styles.typeButtonActive]}
+                                style={[styles.tabButton, quickType === "Task" && styles.activeTab]}
                                 onPress={() => setQuickType("Task")}
                             >
-                                <Text style={[styles.typeButtonText, quickType === "Task" && styles.typeButtonTextActive]}>ตารางสอบ</Text>
+                                <Text style={quickType === "Task" ? styles.activeTabText : styles.inactiveTabText}>
+                                    ตารางสอบ
+                                </Text>
                             </TouchableOpacity>
                         </View>
 
                         {/* Title */}
-                        <TextInput
-                            placeholder="ชื่อวิชา / กิจกรรม"
-                            style={styles.input}
-                            value={quickTitle}
-                            onChangeText={setQuickTitle}
-                        />
+                        <View style={styles.inputWrapper}>
+                            <Ionicons name="create-outline" size={18} color="#666" style={styles.inputIcon} />
+                            <TextInput
+                                placeholder="ชื่อวิชา / กิจกรรม"
+                                style={styles.input}
+                                value={quickTitle}
+                                onChangeText={setQuickTitle}
+                            />
+                        </View>
 
                         {/* Day Selector */}
                         <Text style={styles.quickLabel}>เลือกวัน:</Text>
@@ -334,7 +370,9 @@ const Dashboard = ({ navigation }) => {
                                         style={[styles.quickDayButton, quickDay === dayNumber && styles.quickDayButtonActive]}
                                         onPress={() => setQuickDay(dayNumber)}
                                     >
-                                        <Text style={[styles.quickDayText, quickDay === dayNumber && styles.quickDayTextActive]}>{dayName}</Text>
+                                        <Text style={[styles.quickDayText, quickDay === dayNumber && styles.quickDayTextActive]}>
+                                            {dayName}
+                                        </Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -342,14 +380,22 @@ const Dashboard = ({ navigation }) => {
 
                         {/* Time Pickers */}
                         <Text style={styles.quickLabel}>เลือกเวลา:</Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                            <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5 }]} onPress={() => setShowQuickStartPicker(true)}>
-                                <Text style={{ color: quickStartTimeStr ? "#000" : "#999" }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
+                            <TouchableOpacity
+                                style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]}
+                                onPress={() => setShowQuickStartPicker(true)}
+                            >
+                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                <Text style={{ color: quickStartTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>
                                     {quickStartTimeStr || "เวลาเริ่ม"}
                                 </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.input, { flex: 1, marginLeft: 5 }]} onPress={() => setShowQuickEndPicker(true)}>
-                                <Text style={{ color: quickEndTimeStr ? "#000" : "#999" }}>
+                            <TouchableOpacity
+                                style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]}
+                                onPress={() => setShowQuickEndPicker(true)}
+                            >
+                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                <Text style={{ color: quickEndTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>
                                     {quickEndTimeStr || "เวลาสิ้นสุด"}
                                 </Text>
                             </TouchableOpacity>
@@ -357,12 +403,11 @@ const Dashboard = ({ navigation }) => {
 
                         {/* Action Buttons */}
                         <View style={styles.modalButtonRow}>
-                            <TouchableOpacity style={styles.modalButton} onPress={resetQuickAdd}>
-                                <Text style={[styles.modalButtonText, { color: "#333" }]}>ยกเลิก</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee" }]} onPress={resetQuickAdd}>
+                                <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
                             </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#C3002F" }]} onPress={handleAdd}>
-                                <Text style={styles.modalButtonText}>เพิ่ม</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={handleAdd}>
+                                <Text style={{ color: "#fff", fontWeight: "bold" }}>เพิ่ม</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -388,87 +433,83 @@ const Dashboard = ({ navigation }) => {
                     onChange={onChangeQuickEndTime}
                 />
             )}
-
         </View>
-    )
-}
+    );
+};
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#FFF0F6",
-        padding: 20,
+    container: { flex: 1, backgroundColor: "#F8F9FA" },
+
+    /* ── Top Header: identical pattern to Planner & Profile ── */
+    topHeader: {
+        backgroundColor: "#ff3b3b",
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        paddingBottom: 15,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 5,
     },
-    header: {
-        fontSize: 24,
-        fontWeight: "bold",
-        marginBottom: 20,
-        color: "#C3002F"
-    },
-    card: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: "bold",
-        marginBottom: 10,
-        color: "#C3002F"
-    },
-    subject: {
-        fontSize: 18,
-        fontWeight: "600",
-        marginBottom: 5
-    },
-    time: {
-        fontSize: 14,
-        color: "#666",
-        marginBottom: 5
-    },
-    countdown: {
-        fontSize: 14,
-        color: "#C3002F",
-        fontWeight: "bold"
-    },
-    examItem: {
+    topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+
+    scrollContent: { padding: 20, paddingBottom: 40 },
+
+    /* ── Title Row ── */
+    titleRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f2f2f2"
-    },
-    examText: {
-        fontSize: 16
-    },
-    examDate: {
-        fontSize: 14,
-        color: "#C3002F",
-        fontWeight: "600"
-    },
-    fab: {
-        position: "absolute",
-        bottom: 25,
-        right: 25,
-        backgroundColor: "#C3002F",
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: "center",
         alignItems: "center",
-        elevation: 6,
+        marginBottom: 25,
     },
-    fabText: {
-        color: "#fff",
-        fontSize: 28,
-        fontWeight: "bold"
-    }
-    ,
+    title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
+    addButton: {
+        flexDirection: "row",
+        backgroundColor: "#ff3b3b",
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 12,
+        alignItems: "center",
+    },
+    addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
+
+    /* ── Cards: same style as Profile card ── */
+    card: {
+        backgroundColor: "#fff",
+        padding: 20,
+        borderRadius: 20,
+        elevation: 2,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: "#E9ECEF",
+    },
+    cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+    cardTitle: { fontSize: 16, fontWeight: "bold", color: "#ff3b3b" },
+
+    subject: { fontSize: 18, fontWeight: "700", color: "#222", marginBottom: 4 },
+    timeText: { fontSize: 14, color: "#666", marginBottom: 10 },
+
+    badge: {
+        alignSelf: "flex-start",
+        backgroundColor: "#FFF0F0",
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#FECDD3",
+    },
+    badgeText: { fontSize: 13, color: "#ff3b3b", fontWeight: "bold" },
+    badgeEnded: { backgroundColor: "#F1F3F5", borderColor: "#DEE2E6" },
+    badgeTextEnded: { color: "#888" },
+
+    examItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+
+    emptyRow: { alignItems: "center", paddingVertical: 20, gap: 8 },
+    emptyText: { color: "#aaa", fontSize: 14 },
+
+    /* ── Modal ── */
     modalContainer: {
         flex: 1,
         justifyContent: "flex-end",
@@ -476,155 +517,57 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: "#fff",
-        padding: 20,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        padding: 25,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
     },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        marginBottom: 12,
-        color: "#333"
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: "#eee",
-        borderRadius: 8,
-        padding: 10,
-        marginBottom: 12,
-    },
-    modalButtonRow: {
+    modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a" },
+
+    tabContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
+        backgroundColor: "#F1F3F5",
+        borderRadius: 20,
+        padding: 6,
+        marginBottom: 20,
     },
-    modalButton: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 8,
+    tabButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 16 },
+    activeTab: { backgroundColor: "#fff", elevation: 3, shadowOpacity: 0.1 },
+    activeTabText: { color: "#ff3b3b", fontWeight: "bold" },
+    inactiveTabText: { color: "#adb5bd" },
+
+    inputWrapper: {
+        flexDirection: "row",
         alignItems: "center",
-        marginHorizontal: 6,
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#F1F3F5",
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E9ECEF",
+        marginBottom: 15,
     },
-    modalButtonText: {
-        color: "#fff",
-        fontWeight: "600"
-    },
-    typeButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        backgroundColor: "#f5f5f5",
-        marginRight: 8,
-    },
-    typeButtonActive: {
-        backgroundColor: "#C3002F",
-    },
-    typeButtonText: {
-        color: "#333",
-        fontWeight: "600",
-    },
-    typeButtonTextActive: {
-        color: "#fff",
-    },
-    quickLabel: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#333",
-        marginBottom: 8,
-    },
-    quickDayRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 12,
-    },
+    inputIcon: { paddingLeft: 12 },
+    input: { flex: 1, padding: 12, fontSize: 16, color: "#333" },
+
+    quickLabel: { fontSize: 14, fontWeight: "600", color: "#555", marginBottom: 10 },
+    quickDayRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
     quickDayButton: {
         paddingVertical: 8,
         paddingHorizontal: 6,
-        borderRadius: 8,
-        backgroundColor: "#f0f0f0",
+        borderRadius: 10,
+        backgroundColor: "#F1F3F5",
         alignItems: "center",
         minWidth: 40,
     },
-    quickDayButtonActive: {
-        backgroundColor: "#C3002F",
-    },
-    quickDayText: {
-        fontSize: 11,
-        color: "#333",
-        fontWeight: "600",
-    },
-    quickDayTextActive: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-    topBar: {
-        backgroundColor: "#C3002F",
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    topBarTitle: {
-        color: "#fff",
-        fontWeight: "700",
-        fontSize: 18,
-    },
-    headerRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
+    quickDayButtonActive: { backgroundColor: "#ff3b3b" },
+    quickDayText: { fontSize: 11, color: "#555", fontWeight: "600" },
+    quickDayTextActive: { color: "#fff", fontWeight: "bold" },
+
+    modalButtonRow: { flexDirection: "row" },
+    modalButton: {
+        flex: 1,
+        paddingVertical: 15,
+        borderRadius: 15,
         alignItems: "center",
-        marginBottom: 16,
     },
-    pageTitle: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#111",
-    },
-    subtitle: {
-        color: "#666",
-        marginTop: 4,
-    },
-    headerQuickAdd: {
-        borderWidth: 1,
-        borderColor: "#C3002F",
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        backgroundColor: "#fff",
-    },
-    headerQuickAddText: {
-        color: "#C3002F",
-        fontWeight: "700",
-    },
-    card: {
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: "#FFE6EA",
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        marginBottom: 10,
-        color: "#C3002F"
-    },
-    examItem: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: 12,
-        borderBottomWidth: 0,
-    },
-    examText: {
-        fontSize: 16,
-        color: "#222"
-    },
-    examDate: {
-        fontSize: 14,
-        color: "#C3002F",
-        fontWeight: "600"
-    }
 });
 
 export default Dashboard;
