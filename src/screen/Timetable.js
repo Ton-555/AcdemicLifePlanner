@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
 import DateTimePicker from "@react-native-community/datetimepicker";
 const genTimeBlock = (day, hour, minute, date = null) => {
-  return { day: day, time: `${hour}:${minute === 0 ? '00' : minute}`, date: date };
+  return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
 };
 
 const initial_class_data = [
@@ -85,7 +85,18 @@ const Timetable = () => {
 
   const currentDataList = selTable === 1 ? classes : exams;
   const selectedDayString = dayMap[selDay - 1];
-  const displayData = currentDataList.filter(item => item.startTime.day === selectedDayString);
+  const displayData = currentDataList
+    .filter(item => item.startTime.day === selectedDayString)
+    .sort((a, b) => {
+      // แปลง time string "HH:MM" เป็นตัวเลข นาทีเพื่อจัดเรียง
+      const [aHr, aMin] = a.startTime.time.split(':').map(Number);
+      const [bHr, bMin] = b.startTime.time.split(':').map(Number);
+      
+      const aTotalMinutes = aHr * 60 + aMin;
+      const bTotalMinutes = bHr * 60 + bMin;
+      
+      return aTotalMinutes - bTotalMinutes;
+    });
 
   const handleEditItem = (item) => {
     const actualIndex = (selTable === 1 ? classes : exams).indexOf(item);
