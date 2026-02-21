@@ -338,11 +338,22 @@ const Timetable = () => {
             )}
 
             {selTable === 2 && (
-              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                <Text style={{ color: activityDateStr ? "#000" : "#999" }}>
-                  {activityDateStr || "วันที่สอบ"}
-                </Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                  <Text style={{ color: activityDateStr ? "#000" : "#999" }}>
+                    {activityDateStr || "วันที่สอบ"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* หมายเหตุเพิ่มเติม - ตารางสอบ */}
+                <TextInput
+                  style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                  placeholder="หมายเหตุเพิ่มเติม (เช่น ห้ามนำเครื่องคิดเลข)"
+                  value={newExtraDescriptions}
+                  onChangeText={setNewExtraDescriptions}
+                  multiline={true}
+                />
+              </>
             )}
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
