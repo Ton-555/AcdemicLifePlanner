@@ -5,7 +5,6 @@ const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${hour}:${minute === 0 ? '00' : minute}`, date: date };
 };
 
-// ข้อมูลเริ่มต้น (Initial Data)
 const initial_class_data = [
   { title: 'Math', startTime: genTimeBlock('MON', 9, 0, '2025-02-24'), endTime: genTimeBlock('MON', 10, 50, '2025-02-24'), location: 'Classroom 403', extra_descriptions: ['Kim', 'Lee'] },
   { title: 'Mandarin', startTime: genTimeBlock('TUE', 9, 0, '2025-02-25'), endTime: genTimeBlock('TUE', 10, 50, '2025-02-25'), location: 'Language Center', extra_descriptions: ['Chen'] },
@@ -21,21 +20,21 @@ const Timetable = () => {
   const [selTable, setSelTable] = useState(1);
   const [selDay, setDay] = useState(1);
 
-  // 1. เปลี่ยนข้อมูลให้เป็น State เพื่อให้เพิ่มข้อมูลใหม่ได้
   const [classes, setClasses] = useState(initial_class_data);
   const [exams, setExams] = useState(initial_exam_data);
 
-  // 2. State สำหรับควบคุมหน้าต่างเพิ่มข้อมูล
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editIndex, setEditIndex] = useState(null);
+
   const [isModalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newLocation, setNewLocation] = useState('');
-  const [newDay, setNewDay] = useState(selDay); // วันที่เลือก
+  const [newDay, setNewDay] = useState(selDay);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activityDateStr, setActivityDateStr] = useState("");
 
-  // เวลาเริ่มต้นและเวลาสิ้นสุด
   const [startTimeObj, setStartTimeObj] = useState(new Date());
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [startTimeStr, setStartTimeStr] = useState("");
@@ -44,12 +43,10 @@ const Timetable = () => {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [endTimeStr, setEndTimeStr] = useState("");
 
-  // ฟังก์ชันแปลง Date เป็น YYYY-MM-DD สำหรับบันทึก
   const formatDateToString = (dateObj) => {
     return dateObj.toISOString().split('T')[0];
   };
 
-  // ฟังก์ชันสไตล์ Planner.js สำหรับแสดงผล (แสดงในปุ่ม)
   const formatDisplayTime = (date) => {
     return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
   };
@@ -58,7 +55,6 @@ const Timetable = () => {
     return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  // Handler วันที่
   const onChangeDate = (event, selected) => {
     setShowDatePicker(false);
     if (selected) {
@@ -67,7 +63,6 @@ const Timetable = () => {
     }
   };
 
-  // Handler เวลา
   const onChangeStartTime = (event, selectedTime) => {
     setShowStartTimePicker(false);
     if (selectedTime) {
@@ -84,12 +79,50 @@ const Timetable = () => {
     }
   };
 
-  // กระบวนการกรองข้อมูล (Filter)
   const currentDataList = selTable === 1 ? classes : exams;
   const selectedDayString = dayMap[selDay - 1];
   const displayData = currentDataList.filter(item => item.startTime.day === selectedDayString);
 
-  // ฟังก์ชันสำหรับบันทึกข้อมูลใหม่
+  const handleEditItem = (item) => {
+    const actualIndex = (selTable === 1 ? classes : exams).indexOf(item);
+    setIsEditMode(true);
+    setEditIndex(actualIndex);
+
+    setNewTitle(item.title);
+    setNewLocation(item.location);
+
+    // Day index
+    const dayIdx = dayMap.indexOf(item.startTime.day);
+    setNewDay(dayIdx + 1);
+
+    // Parse Existed Times
+    const [startHr, startMin] = item.startTime.time.split(':').map(Number);
+    const [endHr, endMin] = item.endTime.time.split(':').map(Number);
+
+    const sTime = new Date();
+    sTime.setHours(startHr, startMin, 0, 0);
+    setStartTimeObj(sTime);
+    setStartTimeStr(formatDisplayTime(sTime));
+
+    const eTime = new Date();
+    eTime.setHours(endHr, endMin, 0, 0);
+    setEndTimeObj(eTime);
+    setEndTimeStr(formatDisplayTime(eTime));
+
+    if (selTable === 2 && item.startTime.date) {
+      // Parse date string YYYY-MM-DD
+      const [year, month, day] = item.startTime.date.split('-').map(Number);
+      const dObj = new Date(year, month - 1, day);
+      setSelectedDate(dObj);
+      setActivityDateStr(formatDisplayDate(dObj));
+    } else {
+      setSelectedDate(new Date());
+      setActivityDateStr("");
+    }
+
+    setModalVisible(true);
+  };
+
   const handleSaveData = () => {
     if (!newTitle || !startTimeStr || !endTimeStr) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อวิชา เวลาเริ่ม และเวลาสิ้นสุด");
@@ -99,23 +132,35 @@ const Timetable = () => {
     const selectedDay = dayMap[newDay - 1];
     const dateString = formatDateToString(selectedDate);
 
-    // สร้าง Object ข้อมูลใหม่ตามรูปแบบเดิม
     const newItem = {
       title: newTitle,
       startTime: genTimeBlock(selectedDay, startTimeObj.getHours(), startTimeObj.getMinutes(), dateString),
       endTime: genTimeBlock(selectedDay, endTimeObj.getHours(), endTimeObj.getMinutes(), dateString),
       location: newLocation || 'ไม่ระบุสถานที่',
-      extra_descriptions: [] // ปล่อยว่างไว้ก่อน
+      extra_descriptions: isEditMode && currentDataList[editIndex]?.extra_descriptions ? currentDataList[editIndex].extra_descriptions : []
     };
 
-    // ตรวจสอบว่ากำลังอยู่หน้าไหน แล้วเพิ่มข้อมูลลงตารางนั้น
     if (selTable === 1) {
-      setClasses([...classes, newItem]);
+      if (isEditMode) {
+        const updatedClasses = [...classes];
+        updatedClasses[editIndex] = newItem;
+        setClasses(updatedClasses);
+      } else {
+        setClasses([...classes, newItem]);
+      }
     } else {
-      setExams([...exams, newItem]);
+      if (isEditMode) {
+        const updatedExams = [...exams];
+        updatedExams[editIndex] = newItem;
+        setExams(updatedExams);
+      } else {
+        setExams([...exams, newItem]);
+      }
     }
 
-    // ล้างค่าฟอร์มและปิด Modal
+    setIsEditMode(false);
+    setEditIndex(null);
+
     setNewTitle('');
     setNewLocation('');
     setNewDay(selDay);
@@ -128,11 +173,16 @@ const Timetable = () => {
     setModalVisible(false);
   };
 
+  const handleCancelModal = () => {
+    setIsEditMode(false);
+    setEditIndex(null);
+    setModalVisible(false);
+  };
+
   return (
     <View style={styles.containner}>
       <Text style={styles.hearderText}>Table</Text>
 
-      {/* โซนปุ่มเลือกตารางเรียน/สอบ */}
       <View style={styles.toggleButton}>
         <TouchableOpacity style={[styles.selTableButton, selTable === 1 && styles.activeSelTableButton]} onPress={() => setSelTable(1)}>
           <Text style={selTable === 1 ? styles.activeText : styles.inActiveText}>ตารางเรียน</Text>
@@ -144,7 +194,6 @@ const Timetable = () => {
       </View>
       <View style={{ padding: 10 }} />
 
-      {/* โซนปุ่มเลือกวัน */}
       <View style={styles.toggleDayButton}>
         {['จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'].map((dayName, index) => {
           const dayNumber = index + 1;
@@ -156,11 +205,10 @@ const Timetable = () => {
         })}
       </View>
 
-      {/* โซนแสดงผลข้อมูล */}
       <ScrollView style={styles.listContainer}>
         {displayData.length > 0 ? (
           displayData.map((item, index) => (
-            <View key={index} style={styles.card}>
+            <TouchableOpacity key={index} style={styles.card} onPress={() => handleEditItem(item)}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               {item.startTime.date && (
                 <Text style={styles.cardDate}>วันที่: {item.startTime.date}</Text>
@@ -170,28 +218,25 @@ const Timetable = () => {
               {item.extra_descriptions && item.extra_descriptions.length > 0 && (
                 <Text style={styles.cardExtra}>หมายเหตุ: {item.extra_descriptions.join(', ')}</Text>
               )}
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
-          <Text style={styles.noDataText}>ไม่มีรายการในวันนี้ครับ 🎉</Text>
+          <Text style={styles.noDataText}>ไม่มีรายการ</Text>
         )}
       </ScrollView>
 
-      {/* ปุ่มบวก (+) ขวาล่างสำหรับเพิ่มข้อมูล */}
-      <TouchableOpacity style={styles.fab} onPress={() => { setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setModalVisible(true); }}>
+      <TouchableOpacity style={styles.fab} onPress={() => { setIsEditMode(false); setEditIndex(null); setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setNewTitle(''); setNewLocation(''); setModalVisible(true); }}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* หน้าต่างป๊อปอัป (Modal) สำหรับกรอกข้อมูล */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>เพิ่มรายการใหม่ ({dayMap[newDay - 1]})</Text>
+            <Text style={styles.modalHeader}>{isEditMode ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'} ({dayMap[newDay - 1]})</Text>
 
             <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
 
-            {/* เลือกวันที่ (ถ้าเป็นตารางสอบ) */}
             {selTable === 2 && (
               <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                 <Text style={{ color: activityDateStr ? "#000" : "#999" }}>
@@ -200,7 +245,6 @@ const Timetable = () => {
               </TouchableOpacity>
             )}
 
-            {/* เลือกวัน */}
             <Text style={styles.inputLabel}>เลือกวันทำการ:</Text>
             <View style={styles.daySelectContainer}>
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
@@ -217,7 +261,6 @@ const Timetable = () => {
               })}
             </View>
 
-            {/* เวลาเริ่มเรียน และ เวลาสิ้นสุด */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5 }]} onPress={() => setShowStartTimePicker(true)}>
                 <Text style={{ color: startTimeStr ? "#000" : "#999" }}>
@@ -232,18 +275,17 @@ const Timetable = () => {
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 }}>
-              <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#ccc", marginRight: 10 }]} onPress={() => setModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#ccc", marginRight: 10 }]} onPress={handleCancelModal}>
                 <Text style={{ fontWeight: 'bold' }}>ยกเลิก</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalButton, { flex: 2, backgroundColor: '#007AFF' }]} onPress={handleSaveData}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>บันทึกรายการ</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>{isEditMode ? 'บันทึกการแก้ไข' : 'บันทึกรายการ'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Date/Time Pickers (ซ่อนอยู่และจะแสดงเมื่อถูกเรียก) */}
       {showDatePicker && (
         <DateTimePicker
           value={selectedDate}
@@ -287,7 +329,6 @@ const styles = StyleSheet.create({
   fontDayActive: { fontSize: 12, color: 'black', fontWeight: 'bold' },
   fontDayInActive: { fontSize: 10, color: 'grey' },
   activeSelDayButton: { width: 50, height: 50, backgroundColor: 'lightblue', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5 },
-
   listContainer: { width: '90%', marginTop: 20 },
   card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
   cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
@@ -296,8 +337,6 @@ const styles = StyleSheet.create({
   cardLocation: { fontSize: 14, color: '#666' },
   cardExtra: { fontSize: 12, color: '#d9534f', marginTop: 8, fontStyle: 'italic' },
   noDataText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' },
-
-  // สไตล์เพิ่มเติมสำหรับปุ่มเพิ่มข้อมูลและ Modal
   fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#007AFF', borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 } },
   fabText: { fontSize: 30, color: 'white', fontWeight: 'bold', marginTop: -2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

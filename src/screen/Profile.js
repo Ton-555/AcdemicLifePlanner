@@ -23,7 +23,7 @@ export default function Profile() {
   const pickImage = async () => {
     // ขออนุญาตเข้าถึงอัลบั้มภาพ
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (status !== 'granted') {
       Alert.alert("ขออภัย", "เราจำเป็นต้องขออนุญาตเข้าถึงรูปภาพเพื่อเปลี่ยนโปรไฟล์");
       return;
@@ -173,7 +173,6 @@ export default function Profile() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.versionText}>StudySync v1.1.0</Text>
       </ScrollView>
     </View>
   );
@@ -181,10 +180,10 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
-  topHeader: { 
-    backgroundColor: "#ff3b3b", 
-    paddingHorizontal: 20, 
-    paddingTop: 60, 
+  topHeader: {
+    backgroundColor: "#ff3b3b",
+    paddingHorizontal: 20,
+    paddingTop: 60,
     paddingBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -199,7 +198,7 @@ const styles = StyleSheet.create({
   titleSection: { marginBottom: 20 },
   title: { fontSize: 28, fontWeight: "800", color: "#1a1a1a" },
   subtitle: { color: "#666", fontSize: 14, },
-  
+
   /* Avatar Styles */
   avatarSection: { alignItems: "center", marginBottom: 25 },
   avatarCircle: {
