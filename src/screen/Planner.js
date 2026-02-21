@@ -56,6 +56,18 @@ export default function Planner() {
         return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
+    // ฟังก์ชันแปลงสตริงวันที่ (DD/MM/YYYY) เป็น Date object
+    const parseThaiDate = (dateStr) => {
+        if (dateStr === "ไม่ระบุวัน") {
+            return new Date(9999, 0, 0); // วันไร้ขอบเขต ให้อยู่ท้ายสุด
+        }
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+        return new Date(9999, 0, 0);
+    };
+
     const onDateChange = (event, selected) => {
         setShowDatePicker(false);
         if (selected) {
@@ -160,7 +172,16 @@ export default function Planner() {
                     ))}
 
                     {/* Study Plan Section */}
-                    {activeTab === "study" && studyPlans.map((item) => (
+                    {activeTab === "study" && studyPlans.slice().sort((a, b) => {
+                        // เรียงตามสถานะก่อน (ยังไม่เช็ค = false ก่อน เช็คแล้ว = true)
+                        if (a.done !== b.done) {
+                            return a.done - b.done; // false (0) มาก่อน true (1)
+                        }
+                        // ภายในแต่ละสถานะให้เรียงตามวันที่
+                        const dateA = parseThaiDate(a.date);
+                        const dateB = parseThaiDate(b.date);
+                        return dateA - dateB;
+                    }).map((item) => (
                         <View key={item.id} style={[styles.taskCard, item.done && { opacity: 0.6 }]}>
                             <TouchableOpacity onPress={() => toggleDone(item.id)}>
                                 <Ionicons
