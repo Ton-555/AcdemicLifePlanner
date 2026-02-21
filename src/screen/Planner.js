@@ -1,22 +1,10 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    ScrollView,
-    Modal,
-    Alert,
-    Image,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal, Alert, Image, } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function Planner() {
     const [activeTab, setActiveTab] = useState("activity");
-
-    // ===== ข้อมูลกิจกรรมเสริม =====
     const initialActivities = [
         {
             id: "1",
@@ -24,7 +12,7 @@ export default function Planner() {
             date: "20 ก.พ. 2026",
             time: "09:00 - 16:00 น.",
             location: "ห้องคอนเวนชั่น มก.กำแพงแสน",
-            image: "https://kps.ku.ac.th/v8/images/Satang/2569/Feb/613324.jpg", 
+            image: "https://kps.ku.ac.th/v8/images/Satang/2569/Feb/613324.jpg",
         },
         {
             id: "2",
@@ -56,10 +44,10 @@ export default function Planner() {
         return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-    // ฟังก์ชันแปลงสตริงวันที่ (DD/MM/YYYY) เป็น Date object
+
     const parseThaiDate = (dateStr) => {
         if (dateStr === "ไม่ระบุวัน") {
-            return new Date(9999, 0, 0); // วันไร้ขอบเขต ให้อยู่ท้ายสุด
+            return new Date(9999, 0, 0);
         }
         const parts = dateStr.split('/');
         if (parts.length === 3) {
@@ -98,10 +86,8 @@ export default function Planner() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
             <View style={styles.topHeader}>
                 <View>
-                    <Text style={styles.brandText}>StudySync</Text>
                     <Text style={styles.topHeaderText}>Academic Life Planner</Text>
                 </View>
                 <Ionicons name="pulse-outline" size={28} color="#fff" />
@@ -110,8 +96,6 @@ export default function Planner() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                 <View style={{ padding: 20 }}>
                     <Text style={styles.title}>Activity & Planner</Text>
-                    
-                    {/* Tab Switcher */}
                     <View style={styles.tabContainer}>
                         <TouchableOpacity
                             style={[styles.tabButton, activeTab === "activity" && styles.activeTab]}
@@ -140,18 +124,16 @@ export default function Planner() {
                         )}
                     </View>
 
-                    {/* Activity Section */}
                     {activeTab === "activity" && initialActivities.map((item) => (
                         <View key={item.id} style={styles.largeCard}>
-                            {/* ปรับปรุงส่วนรูปภาพให้เต็มความกว้างและสัดส่วนคงที่ */}
-                            <Image 
-                                source={{ uri: item.image }} 
-                                style={styles.cardImage} 
-                                resizeMode="cover" 
+                            <Image
+                                source={{ uri: item.image }}
+                                style={styles.cardImage}
+                                resizeMode="cover"
                             />
                             <View style={styles.cardContent}>
                                 <Text style={styles.largeCardTitle}>{item.title}</Text>
-                                
+
                                 <View style={styles.locationContainer}>
                                     <Ionicons name="location-outline" size={16} color="#666" />
                                     <Text style={styles.locationText}>{item.location}</Text>
@@ -171,13 +153,11 @@ export default function Planner() {
                         </View>
                     ))}
 
-                    {/* Study Plan Section */}
+
                     {activeTab === "study" && studyPlans.slice().sort((a, b) => {
-                        // เรียงตามสถานะก่อน (ยังไม่เช็ค = false ก่อน เช็คแล้ว = true)
                         if (a.done !== b.done) {
-                            return a.done - b.done; // false (0) มาก่อน true (1)
+                            return a.done - b.done;
                         }
-                        // ภายในแต่ละสถานะให้เรียงตามวันที่
                         const dateA = parseThaiDate(a.date);
                         const dateB = parseThaiDate(b.date);
                         return dateA - dateB;
@@ -253,20 +233,20 @@ export default function Planner() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FDFDFD" },
-    topHeader: { 
-        backgroundColor: "#ff3b3b", 
-        paddingHorizontal: 25, 
-        paddingTop: 60, 
-        paddingBottom: 25,
+    topHeader: {
+        backgroundColor: "#ff3b3b",
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        paddingBottom: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomLeftRadius: 35,
-        borderBottomRightRadius: 35,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 5,
     },
-    brandText: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: "bold", letterSpacing: 1.2 },
     topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 24 },
-    title: { fontSize: 28, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
+    title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
     tabContainer: {
         flexDirection: "row",
         backgroundColor: "#F1F3F5",
@@ -289,22 +269,21 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-    
-    // Activity Large Card ปรับปรุงความกว้างให้เต็มที่
+
     largeCard: {
         backgroundColor: "#fff",
         borderRadius: 20,
         marginBottom: 25,
-        width: '100%', // ให้การ์ดเต็มหน้าจอ
+        width: '100%',
         overflow: "hidden",
         elevation: 5,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
     },
-    cardImage: { 
-        width: '100%', 
-        aspectRatio: 16 / 9, // บังคับสัดส่วนภาพให้สวยงามแบบ Wide Screen
+    cardImage: {
+        width: '100%',
+        aspectRatio: 16 / 9,
     },
     cardContent: { padding: 20 },
     largeCardTitle: { fontSize: 20, fontWeight: "bold", color: "#222", marginBottom: 8 },
@@ -326,7 +305,7 @@ const styles = StyleSheet.create({
     },
     taskTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
     taskDate: { fontSize: 12, color: "#999", marginTop: 2 },
-    
+
     emptyContainer: { alignItems: "center", marginTop: 50 },
     emptyText: { color: "#999", marginTop: 15, textAlign: "center" },
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },

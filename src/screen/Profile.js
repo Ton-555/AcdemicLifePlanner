@@ -7,21 +7,20 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  Image, // เพิ่ม Image สำหรับแสดงรูปที่เลือก
+  Image,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from 'expo-image-picker'; // ต้องติดตั้งเพิ่ม: npx expo install expo-image-picker
+import * as ImagePicker from 'expo-image-picker';
 
 export default function Profile() {
   const [name, setName] = useState("");
   const [faculty, setFaculty] = useState("");
   const [year, setYear] = useState("");
-  const [image, setImage] = useState(null); // State สำหรับเก็บรูปโปรไฟล์
+  const [image, setImage] = useState(null);
 
-  // ฟังก์ชันเลือกรูปภาพ
+
   const pickImage = async () => {
-    // ขออนุญาตเข้าถึงอัลบั้มภาพ
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
@@ -31,8 +30,8 @@ export default function Profile() {
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // ให้ตัดรูปได้ (Crop)
-      aspect: [1, 1], // บังคับเป็นสี่เหลี่ยมจัตุรัส
+      allowsEditing: true,
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -62,7 +61,7 @@ export default function Profile() {
             setName("");
             setFaculty("");
             setYear("");
-            setImage(null); // ล้างรูปภาพ
+            setImage(null);
           },
         },
       ]
@@ -74,7 +73,6 @@ export default function Profile() {
       {/* Header */}
       <View style={styles.topHeader}>
         <View>
-          <Text style={styles.brandText}>StudySync</Text>
           <Text style={styles.topHeaderText}>Academic Life Planner</Text>
         </View>
         <Ionicons name="person-outline" size={26} color="#fff" />
@@ -83,10 +81,8 @@ export default function Profile() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.titleSection}>
           <Text style={styles.title}>Setting</Text>
-          <Text style={styles.subtitle}>จัดการข้อมูลและการตั้งค่าบัญชี</Text>
         </View>
 
-        {/* ================= Avatar Section (คลิกเพื่อเปลี่ยนรูป) ================= */}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
             <View style={styles.avatarCircle}>
@@ -105,13 +101,10 @@ export default function Profile() {
           <Text style={styles.avatarSubText}>{faculty || "ยังไม่ได้ระบุคณะ"}</Text>
         </View>
 
-        {/* ข้อมูลนิสิต Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="id-card-outline" size={20} color="#ff3b3b" />
             <Text style={styles.sectionTitle}> ข้อมูลนิสิต / นักศึกษา</Text>
           </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>ชื่อ-นามสกุล</Text>
             <View style={styles.inputWrapper}>
@@ -153,7 +146,6 @@ export default function Profile() {
           </View>
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Ionicons name="save-outline" size={20} color="#fff" />
             <Text style={styles.buttonText}> บันทึกข้อมูล</Text>
           </TouchableOpacity>
         </View>
@@ -161,14 +153,13 @@ export default function Profile() {
         {/* Danger Zone */}
         <View style={styles.warningCard}>
           <View style={styles.cardHeader}>
-            <Ionicons name="alert-circle" size={22} color="red" />
             <Text style={[styles.warningTitle, { marginLeft: 5 }]}>Danger Zone</Text>
           </View>
           <Text style={styles.warningText}>
             การกดปุ่มด้านล่างจะทำให้ข้อมูลทั้งหมดรวมถึงรูปภาพถูกลบออก
           </Text>
           <TouchableOpacity style={styles.deleteButton} onPress={handleClear}>
-            <Ionicons name="trash-outline" size={20} color="#fff" />
+
             <Text style={styles.buttonText}> ลบข้อมูลทั้งหมด</Text>
           </TouchableOpacity>
         </View>
@@ -183,8 +174,8 @@ const styles = StyleSheet.create({
   topHeader: {
     backgroundColor: "#ff3b3b",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -192,14 +183,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     elevation: 5,
   },
-  brandText: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "bold", letterSpacing: 1 },
-  topHeaderText: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
   scrollContent: { padding: 20, paddingBottom: 40 },
   titleSection: { marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: "800", color: "#1a1a1a" },
-  subtitle: { color: "#666", fontSize: 14, },
-
-  /* Avatar Styles */
+  title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
   avatarSection: { alignItems: "center", marginBottom: 25 },
   avatarCircle: {
     width: 100,
@@ -212,7 +199,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#ff3b3b",
     marginBottom: 10,
-    position: 'relative', // เพื่อวาง Badge กล้อง
+    position: 'relative',
   },
   profileImage: {
     width: '100%',
