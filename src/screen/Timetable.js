@@ -29,7 +29,6 @@ const Timetable = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newLocation, setNewLocation] = useState('');
-  const [newDay, setNewDay] = useState(selDay);
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -49,6 +48,13 @@ const Timetable = () => {
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  // ฟังก์ชันหาวันจากวันที่ (MON, TUE, WED, ...)
+  const getDayFromDate = (dateObj) => {
+    const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 1 = Monday, ...
+    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // แปลงให้ Monday = 0
+    return dayMap[dayIndex];
   };
 
   const formatDisplayTime = (date) => {
@@ -106,10 +112,6 @@ const Timetable = () => {
     setNewTitle(item.title);
     setNewLocation(item.location);
 
-    // Day index
-    const dayIdx = dayMap.indexOf(item.startTime.day);
-    setNewDay(dayIdx + 1);
-
     // Parse Existed Times
     const [startHr, startMin] = item.startTime.time.split(':').map(Number);
     const [endHr, endMin] = item.endTime.time.split(':').map(Number);
@@ -153,7 +155,7 @@ const Timetable = () => {
       return;
     }
 
-    const selectedDay = dayMap[newDay - 1];
+    const selectedDay = getDayFromDate(selectedDate);
     const dateString = formatDateToString(selectedDate);
 
     const newItem = {
@@ -187,7 +189,6 @@ const Timetable = () => {
 
     setNewTitle('');
     setNewLocation('');
-    setNewDay(selDay);
     setSelectedDate(new Date());
     setActivityDateStr("");
     setStartTimeObj(new Date());
@@ -276,7 +277,7 @@ const Timetable = () => {
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>{isEditMode ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'} ({dayMap[newDay - 1]})</Text>
+            <Text style={styles.modalHeader}>{isEditMode ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</Text>
 
             <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
@@ -288,22 +289,6 @@ const Timetable = () => {
                 </Text>
               </TouchableOpacity>
             )}
-
-            <Text style={styles.inputLabel}>เลือกวันทำการ:</Text>
-            <View style={styles.daySelectContainer}>
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
-                const dayNumber = index + 1;
-                return (
-                  <TouchableOpacity
-                    key={dayNumber}
-                    style={[styles.daySelectButton, newDay === dayNumber && styles.activeSelectDayButton]}
-                    onPress={() => setNewDay(dayNumber)}
-                  >
-                    <Text style={[styles.daySelectText, newDay === dayNumber && styles.activeSelectDayText]}>{dayName}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity style={[styles.input, { flex: 1, marginRight: 5 }]} onPress={() => setShowStartTimePicker(true)}>
