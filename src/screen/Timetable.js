@@ -172,8 +172,8 @@ const Timetable = () => {
 
     const newItem = {
       title: newTitle,
-      startTime: genTimeBlock(selectedDay, startTimeObj.getHours(), startTimeObj.getMinutes(), dateString),
-      endTime: genTimeBlock(selectedDay, endTimeObj.getHours(), endTimeObj.getMinutes(), dateString),
+      startTime: genTimeBlock(selectedDay, startTimeObj.getHours(), startTimeObj.getMinutes(), selTable === 1 ? null : dateString),
+      endTime: genTimeBlock(selectedDay, endTimeObj.getHours(), endTimeObj.getMinutes(), selTable === 1 ? null : dateString),
       location: newLocation || 'ไม่ระบุสถานที่',
       extra_descriptions: extraDescArray
     };
@@ -287,8 +287,6 @@ const Timetable = () => {
           })}
         </View>
       </View>
-
-
 
       <ScrollView style={styles.listContainer}>
         {displayData.length > 0 ? (
@@ -461,11 +459,11 @@ const styles = StyleSheet.create({
   listContainer: { width: '90%', marginTop: 20 },
   card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
   cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  cardDate: { fontSize: 13, color: '#e74c3c', marginBottom: 5, fontWeight: '500' },
-  cardTime: { fontSize: 14, color: '#007AFF', marginBottom: 5 },
+  cardDate: { fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' },
+  cardTime: { fontSize: 14, color: '#666', marginBottom: 5 },
   cardLocation: { fontSize: 14, color: '#666' },
   cardExtra: { fontSize: 12, color: '#d9534f', marginTop: 8, fontStyle: 'italic' },
-  noDataText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' },
+  noDataText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#3d3d3dff' },
   fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: "#ff3b3b", borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 } },
   fabText: { fontSize: 30, color: 'white', fontWeight: 'bold', marginTop: -2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

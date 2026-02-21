@@ -3,8 +3,8 @@ const genTimeBlock = (day, hour, minute, date = null) => {
 };
 
 const initial_class_data = [
-  { title: 'Startup', startTime: genTimeBlock('MON', 9, 0), endTime: genTimeBlock('MON', 12, 0, '2025-02-24'), location: 'LH-2-204', extra_descriptions: ['ส่งงาน', 'ด่วน'] },
-  { title: 'Mobile Application', startTime: genTimeBlock('TUE', 10, 0), endTime: genTimeBlock('TUE', 12, 0, '2025-02-25'), location: 'SC-9-333', extra_descriptions: ['มีการบ้าน'] },
+  { title: 'Startup', startTime: genTimeBlock('MON', 9, 0), endTime: genTimeBlock('MON', 12, 0), location: 'LH-2-204', extra_descriptions: ['ส่งงาน', 'ด่วน'] },
+  { title: 'Mobile Application', startTime: genTimeBlock('TUE', 10, 0), endTime: genTimeBlock('TUE', 12, 0), location: 'SC-9-333', extra_descriptions: ['มีการบ้าน'] },
 ];
 
 const initial_exam_data = [
