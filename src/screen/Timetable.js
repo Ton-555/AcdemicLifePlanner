@@ -44,7 +44,11 @@ const Timetable = () => {
   const [endTimeStr, setEndTimeStr] = useState("");
 
   const formatDateToString = (dateObj) => {
-    return dateObj.toISOString().split('T')[0];
+    // ใช้ local time แทน toISOString() ซึ่งเป็น UTC เพื่อไม่ให้วันที่เคลื่อน
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatDisplayTime = (date) => {
@@ -129,6 +133,15 @@ const Timetable = () => {
       return;
     }
 
+    // Validation: End time must be after Start time
+    const startTotalMinutes = startTimeObj.getHours() * 60 + startTimeObj.getMinutes();
+    const endTotalMinutes = endTimeObj.getHours() * 60 + endTimeObj.getMinutes();
+
+    if (endTotalMinutes <= startTotalMinutes) {
+      Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ");
+      return;
+    }
+
     const selectedDay = dayMap[newDay - 1];
     const dateString = formatDateToString(selectedDate);
 
@@ -177,6 +190,26 @@ const Timetable = () => {
     setIsEditMode(false);
     setEditIndex(null);
     setModalVisible(false);
+  };
+
+  const handleDeleteItem = () => {
+    Alert.alert("ลบรายการ", "คุณต้องการลบรายการนี้ใช่หรือไม่?", [
+      { text: "ยกเลิก", style: "cancel" },
+      {
+        text: "ลบ", style: "destructive", onPress: () => {
+          if (selTable === 1) {
+            const updatedClasses = [...classes];
+            updatedClasses.splice(editIndex, 1);
+            setClasses(updatedClasses);
+          } else {
+            const updatedExams = [...exams];
+            updatedExams.splice(editIndex, 1);
+            setExams(updatedExams);
+          }
+          handleCancelModal();
+        }
+      }
+    ]);
   };
 
   return (
@@ -275,11 +308,16 @@ const Timetable = () => {
             </View>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 }}>
-              <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#ccc", marginRight: 10 }]} onPress={handleCancelModal}>
+              {isEditMode && (
+                <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#FF3B30", marginRight: 5 }]} onPress={handleDeleteItem}>
+                  <Text style={{ color: 'white', fontWeight: 'bold' }}>ลบ</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.modalButton, { flex: 1, backgroundColor: "#ccc", marginHorizontal: isEditMode ? 5 : 0, marginRight: !isEditMode ? 10 : 5 }]} onPress={handleCancelModal}>
                 <Text style={{ fontWeight: 'bold' }}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { flex: 2, backgroundColor: '#007AFF' }]} onPress={handleSaveData}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>{isEditMode ? 'บันทึกการแก้ไข' : 'บันทึกรายการ'}</Text>
+              <TouchableOpacity style={[styles.modalButton, { flex: isEditMode ? 1.5 : 2, backgroundColor: '#007AFF', marginLeft: isEditMode ? 5 : 0 }]} onPress={handleSaveData}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>{isEditMode ? 'บันทึก' : 'บันทึกรายการ'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -300,6 +338,7 @@ const Timetable = () => {
           value={startTimeObj}
           mode="time"
           display="default"
+          is24Hour={true}
           onChange={onChangeStartTime}
         />
       )}
@@ -309,6 +348,7 @@ const Timetable = () => {
           value={endTimeObj}
           mode="time"
           display="default"
+          is24Hour={true}
           onChange={onChangeEndTime}
         />
       )}

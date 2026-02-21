@@ -45,7 +45,7 @@ const Dashboard = ({ navigation }) => {
 
                 {/* Next Class Card */}
                 <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Timetable')}>
-                    <Text style={styles.cardTitle}>📚 Next Class</Text>
+                    <Text style={styles.cardTitle}>Next Class</Text>
                     <Text style={styles.subject}>Mathematics</Text>
                     <Text style={styles.time}>13:00 - 15:00</Text>
                     <Text style={styles.countdown}>Starts in 1h 20m</Text>
@@ -53,7 +53,7 @@ const Dashboard = ({ navigation }) => {
 
                 {/* Upcoming Exams */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>📝 Upcoming Exams</Text>
+                    <Text style={styles.cardTitle}>Upcoming Exams</Text>
 
                     <TouchableOpacity style={styles.examItem} onPress={() => navigation.navigate('Timetable')}>
                         <Text style={styles.examText}>Physics</Text>
