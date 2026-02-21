@@ -145,7 +145,7 @@ export default function Planner() {
                     <Text style={styles.brandText}>StudySync</Text>
                     <Text style={styles.topHeaderText}>Academic Life Planner</Text>
                 </View>
-                <Ionicons name="calendar-outline" size={28} color="#fff" />
+                <Ionicons name="pulse-outline" size={28} color="#fff" />
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20 }}>
