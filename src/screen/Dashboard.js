@@ -177,6 +177,31 @@ const Dashboard = ({ navigation }) => {
         return () => unsub();
     }, []);
 
+    const checkTimeOverlap = (newItem, currentList) => {
+        return currentList.some((existingItem) => {
+            // ตรวจสอบวันเดียวกัน
+            const isSameDay = existingItem.startTime.day === newItem.startTime.day;
+
+            if (!isSameDay) {
+                return false;
+            }
+
+            // แปลง time strings เป็นนาที
+            const [existingStartHr, existingStartMin] = existingItem.startTime.time.split(':').map(Number);
+            const [existingEndHr, existingEndMin] = existingItem.endTime.time.split(':').map(Number);
+            const [newStartHr, newStartMin] = newItem.startTime.time.split(':').map(Number);
+            const [newEndHr, newEndMin] = newItem.endTime.time.split(':').map(Number);
+
+            const existingStartMinutes = existingStartHr * 60 + existingStartMin;
+            const existingEndMinutes = existingEndHr * 60 + existingEndMin;
+            const newStartMinutes = newStartHr * 60 + newStartMin;
+            const newEndMinutes = newEndHr * 60 + newEndMin;
+
+            // ตรวจสอบการทับซ้อน: A overlaps B if A.start < B.end AND A.end > B.start
+            return newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes;
+        });
+    };
+
     const handleAdd = () => {
         if (!quickTitle.trim()) {
             Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อวิชา / กิจกรรม");
@@ -202,6 +227,13 @@ const Dashboard = ({ navigation }) => {
             location: 'ไม่ระบุสถานที่',
             extra_descriptions: []
         };
+
+        // ตรวจสอบการทับซ้อนของเวลา
+        const currentList = quickType === "Activity" ? classes : exams;
+        if (checkTimeOverlap(newItem, currentList)) {
+            Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับ " + (quickType === "Activity" ? "วิชาเรียน" : "กิจกรรม") + " ที่มีอยู่แล้ว กรุณาเลือกเวลาที่ต่างออกไป");
+            return;
+        }
 
         if (quickType === "Activity") {
             timetableStore.addClass(newItem);
