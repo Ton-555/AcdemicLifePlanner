@@ -113,6 +113,41 @@ const Timetable = () => {
       return aTotalMinutes - bTotalMinutes;
     });
 
+  const checkTimeOverlap = (newItem, currentList, excludeIndex = null) => {
+    return currentList.some((existingItem, index) => {
+      // ข้ามรายการที่กำลังแก้ไข (edit mode)
+      if (excludeIndex !== null && index === excludeIndex) {
+        return false;
+      }
+
+      // ตรวจสอบวันเดียวกันหรือวันที่เดียวกัน
+      const isSameDay = existingItem.startTime.day === newItem.startTime.day;
+      const isSameDate = existingItem.startTime.date === newItem.startTime.date;
+
+      // สำหรับ class (ไม่มี date) ตรวจสอบวันเท่านั้น
+      // สำหรับ exam (มี date) ตรวจสอบวันที่เท่านั้น
+      const isSameDayOrDate = selTable === 1 ? isSameDay : isSameDate;
+
+      if (!isSameDayOrDate) {
+        return false;
+      }
+
+      // แปลง time strings เป็นนาที
+      const [existingStartHr, existingStartMin] = existingItem.startTime.time.split(':').map(Number);
+      const [existingEndHr, existingEndMin] = existingItem.endTime.time.split(':').map(Number);
+      const [newStartHr, newStartMin] = newItem.startTime.time.split(':').map(Number);
+      const [newEndHr, newEndMin] = newItem.endTime.time.split(':').map(Number);
+
+      const existingStartMinutes = existingStartHr * 60 + existingStartMin;
+      const existingEndMinutes = existingEndHr * 60 + existingEndMin;
+      const newStartMinutes = newStartHr * 60 + newStartMin;
+      const newEndMinutes = newEndHr * 60 + newEndMin;
+
+      // ตรวจสอบการทับซ้อน: A overlaps B if A.start < B.end AND A.end > B.start
+      return newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes;
+    });
+  };
+
   const handleEditItem = (item) => {
     const actualIndex = (selTable === 1 ? classes : exams).indexOf(item);
     setIsEditMode(true);
@@ -177,6 +212,15 @@ const Timetable = () => {
       location: newLocation || 'ไม่ระบุสถานที่',
       extra_descriptions: extraDescArray
     };
+
+    // ตรวจสอบการทับซ้อนของเวลา
+    const currentList = selTable === 1 ? classes : exams;
+    const excludeIdx = isEditMode ? editIndex : null;
+    
+    if (checkTimeOverlap(newItem, currentList, excludeIdx)) {
+      Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับ " + (selTable === 1 ? "วิชาเรียน" : "กิจกรรม") + " ที่มีอยู่แล้ว กรุณาเลือกเวลาที่ต่างออกไป");
+      return;
+    }
 
     if (selTable === 1) {
       if (isEditMode) {
