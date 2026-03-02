@@ -1,439 +1,372 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+    View, Text, StyleSheet, TouchableOpacity,
+    ScrollView, Modal, TextInput, Alert
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import timetableStore from '../data/TimetableStore';
 
-const genTimeBlock = (day, hour, minute, date = null) => {
-    return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+const genTimeBlock = (day, hour, minute, date = null) =>
+    ({ day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date });
+
+const DAY_MAP = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+const WEEKDAY_NUM = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+
+/** แปลง item → concrete Date (เทียบกับ refDate) */
+const itemToDate = (item, refDate) => {
+    if (!item?.startTime) return null;
+    const { day, time, date } = item.startTime;
+    const [hh, mm] = (time || '00:00').split(':').map(Number);
+
+    if (date) {
+        const [y, m, d] = date.split('-').map(Number);
+        if (y && m && d) return new Date(y, m - 1, d, hh, mm);
+    }
+    if (day) {
+        const target = WEEKDAY_NUM[day.toUpperCase()];
+        if (typeof target === 'number') {
+            const ref = new Date(refDate);
+            const today = ref.getDay();
+            let diff = (target - today + 7) % 7;
+            if (diff === 0) {
+                const nowMins = ref.getHours() * 60 + ref.getMinutes();
+                if (hh * 60 + mm <= nowMins) diff = 7;
+            }
+            return new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + diff, hh, mm);
+        }
+    }
+    return null;
 };
 
-const dayMap = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+/** ช่วงวันของแต่ละ filter */
+const getRangeMs = (period) => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    if (period === 'today') {
+        return {
+            from: startOfToday.getTime(),
+            to: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime(),
+        };
+    }
+    if (period === 'week') {
+        // นับ 7 วันถัดไปจากพรุ่งนี้
+        const start = new Date(startOfToday); start.setDate(start.getDate() + 1);
+        const end = new Date(startOfToday); end.setDate(end.getDate() + 7); end.setHours(23, 59, 59);
+        return { from: start.getTime(), to: end.getTime() };
+    }
+    // month – 30 วันถัดไป
+    const start = new Date(startOfToday); start.setDate(start.getDate() + 1);
+    const end = new Date(startOfToday); end.setDate(end.getDate() + 30); end.setHours(23, 59, 59);
+    return { from: start.getTime(), to: end.getTime() };
+};
+
+const FILTERS = [
+    { key: 'today', label: 'วันนี้', icon: 'today-outline' },
+    { key: 'week', label: 'สัปดาห์หน้า', icon: 'calendar-outline' },
+    { key: 'month', label: 'เดือนหน้า', icon: 'calendar-clear-outline' },
+];
+
+const thaiDayShort = { MON: 'จ', TUE: 'อ', WED: 'พ', THU: 'พฤ', FRI: 'ศ', SAT: 'ส', SUN: 'อา' };
+
+const fmtTime = (t) => t || '-';
+
+// ─── Dashboard Component ─────────────────────────────────────────────────────
 
 const Dashboard = ({ navigation }) => {
-    const [modalVisible, setModalVisible] = useState(false);
-    const [quickType, setQuickType] = useState("Activity");
-    const [quickTitle, setQuickTitle] = useState("");
-    const [quickDay, setQuickDay] = useState(1);
-
-    const [quickStartTimeObj, setQuickStartTimeObj] = useState(new Date());
-    const [showQuickStartPicker, setShowQuickStartPicker] = useState(false);
-    const [quickStartTimeStr, setQuickStartTimeStr] = useState("");
-
-    const [quickEndTimeObj, setQuickEndTimeObj] = useState(new Date());
-    const [showQuickEndPicker, setShowQuickEndPicker] = useState(false);
-    const [quickEndTimeStr, setQuickEndTimeStr] = useState("");
-
-    const formatDisplayTime = (date) => {
-        return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + " น.";
-    };
-
-    const onChangeQuickStartTime = (event, selectedTime) => {
-        setShowQuickStartPicker(false);
-        if (selectedTime) {
-            setQuickStartTimeObj(selectedTime);
-            setQuickStartTimeStr(formatDisplayTime(selectedTime));
-        }
-    };
-
-    const onChangeQuickEndTime = (event, selectedTime) => {
-        setShowQuickEndPicker(false);
-        if (selectedTime) {
-            setQuickEndTimeObj(selectedTime);
-            setQuickEndTimeStr(formatDisplayTime(selectedTime));
-        }
-    };
-
-    const resetQuickAdd = () => {
-        setQuickTitle("");
-        setQuickType("Activity");
-        setQuickDay(1);
-        setQuickStartTimeObj(new Date());
-        setQuickStartTimeStr("");
-        setQuickEndTimeObj(new Date());
-        setQuickEndTimeStr("");
-        setModalVisible(false);
-    };
-
+    // ── data from store ──
     const [classes, setClasses] = useState(timetableStore.getClasses());
     const [exams, setExams] = useState(timetableStore.getExams());
     const [nowMs, setNowMs] = useState(Date.now());
 
-    const itemToSortable = (item) => {
-        try {
-            if (!item || !item.startTime) return 0;
-            const timeStr = item.startTime.time || '00:00';
-            const [hh, mm] = timeStr.split(':').map(n => parseInt(n, 10) || 0);
+    // ── filter state ──
+    const [period, setPeriod] = useState('today');
 
-            if (item.startTime.date) {
-                const [y, m, d] = item.startTime.date.split('-').map(n => parseInt(n, 10));
-                if (y && m && d) return new Date(y, m - 1, d, hh, mm, 0, 0).getTime();
-            }
+    // ── quick-add modal ──
+    const [modalVisible, setModalVisible] = useState(false);
+    const [quickType, setQuickType] = useState("Activity");
+    const [quickTitle, setQuickTitle] = useState("");
+    const [quickDay, setQuickDay] = useState(1);
+    const [quickStartTimeObj, setQuickStartTimeObj] = useState(new Date());
+    const [showQuickStartPicker, setShowQuickStartPicker] = useState(false);
+    const [quickStartTimeStr, setQuickStartTimeStr] = useState("");
+    const [quickEndTimeObj, setQuickEndTimeObj] = useState(new Date());
+    const [showQuickEndPicker, setShowQuickEndPicker] = useState(false);
+    const [quickEndTimeStr, setQuickEndTimeStr] = useState("");
 
-            if (item.startTime.day) {
-                const weekdayMap = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6, SUN: 0 };
-                const target = weekdayMap[item.startTime.day.toUpperCase()];
-                if (typeof target === 'number') {
-                    const now = new Date(nowMs);
-                    const today = now.getDay();
-                    let daysUntil = (target - today + 7) % 7;
-                    if (daysUntil === 0) {
-                        const nowMins = now.getHours() * 60 + now.getMinutes();
-                        if (hh * 60 + mm <= nowMins) daysUntil = 7;
-                    }
-                    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntil, hh, mm, 0, 0).getTime();
-                }
-            }
-        } catch (e) {
-            return 0;
-        }
-        return 0;
-    };
-
-    const sortedClasses = (classes || []).slice().sort((a, b) => itemToSortable(a) - itemToSortable(b));
-    const sortedExams = (exams || []).slice().sort((a, b) => itemToSortable(a) - itemToSortable(b));
-
-    const pickNextOrRecent = (list) => {
-        const now = new Date(nowMs).getTime();
-        if (!list || list.length === 0) return { next: null, recent: null };
-        const mapped = list.map(item => ({ item, ts: itemToSortable(item) }));
-        const upcoming = mapped.filter(m => m.ts > now).sort((x, y) => x.ts - y.ts);
-        if (upcoming.length > 0) return { next: upcoming[0].item, recent: null };
-        const past = mapped.filter(m => m.ts <= now).sort((x, y) => y.ts - x.ts);
-        return { next: null, recent: past.length > 0 ? past[0].item : null };
-    };
-
-    const { next: nextClass, recent: recentClass } = pickNextOrRecent(sortedClasses);
-    const { next: nextExam, recent: recentExam } = pickNextOrRecent(sortedExams);
-
-    const parseTime = (timeStr) => {
-        const [hh, mm] = (timeStr || '00:00').split(':').map(n => parseInt(n, 10) || 0);
-        return { hh, mm };
-    };
-
-    const getDateFor = (item, which = 'start') => {
-        if (!item || !item.startTime) return null;
-        const timeField = which === 'start' ? item.startTime : item.endTime || {};
-        const timeStr = timeField.time || '00:00';
-        const { hh, mm } = parseTime(timeStr);
-
-        if (timeField.date) {
-            const [y, m, d] = timeField.date.split('-').map(n => parseInt(n, 10));
-            if (y && m && d) return new Date(y, m - 1, d, hh, mm, 0, 0);
-        }
-
-        if (timeField.day) {
-            const weekdayMap = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6, SUN: 0 };
-            const target = weekdayMap[timeField.day.toUpperCase()];
-            if (typeof target === 'number') {
-                const now = new Date(nowMs);
-                const today = now.getDay();
-                let daysUntil = (target - today + 7) % 7;
-                if (daysUntil === 0) {
-                    const nowMins = now.getHours() * 60 + now.getMinutes();
-                    if (hh * 60 + mm <= nowMins) daysUntil = 7;
-                }
-                return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntil, hh, mm, 0, 0);
-            }
-        }
-
-        return null;
-    };
-
-    const formatDuration = (ms) => {
-        if (ms <= 0) return '0m';
-        const totalSeconds = Math.floor(ms / 1000);
-        const days = Math.floor(totalSeconds / 86400);
-        const hours = Math.floor((totalSeconds % 86400) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        if (days > 0) return `Starts in ${days}d ${hours}h ${minutes}m`;
-        if (hours > 0) return `Starts in ${hours}h ${minutes}m`;
-        return `Starts in ${minutes}m`;
-    };
-
-    const timeUntil = (item) => {
-        const now = new Date(nowMs);
-        const start = getDateFor(item, 'start');
-        const end = getDateFor(item, 'end');
-        if (start && start.getTime() > now.getTime()) {
-            return formatDuration(start.getTime() - now.getTime());
-        }
-        if (end && end.getTime() > now.getTime()) {
-            const ms = end.getTime() - now.getTime();
-            const totalMinutes = Math.floor(ms / 60000);
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-            if (hours > 0) return `In progress - ends in ${hours}h ${minutes}m`;
-            return `In progress - ends in ${minutes}m`;
-        }
-        return 'Ended';
-    };
-
+    // subscribe to store
     useEffect(() => {
         const unsub = timetableStore.subscribe(({ classes: nc, exams: ne }) => {
             setClasses(nc);
             setExams(ne);
         });
-        return () => unsub();
+        // refresh clock every minute
+        const tick = setInterval(() => setNowMs(Date.now()), 60_000);
+        return () => { unsub(); clearInterval(tick); };
     }, []);
 
-    const checkTimeOverlap = (newItem, currentList) => {
-        return currentList.some((existingItem) => {
-            // ตรวจสอบวันเดียวกัน
-            const isSameDay = existingItem.startTime.day === newItem.startTime.day;
+    // ── filtered data (reactive) ──
+    const { filteredClasses, filteredExams } = useMemo(() => {
+        const { from, to } = getRangeMs(period);
+        const now = new Date(nowMs);
 
-            if (!isSameDay) {
-                return false;
-            }
+        const fc = (classes || []).filter(item => {
+            const d = itemToDate(item, now);
+            return d && d.getTime() >= from && d.getTime() <= to;
+        }).sort((a, b) => (itemToDate(a, now)?.getTime() || 0) - (itemToDate(b, now)?.getTime() || 0));
 
-            // แปลง time strings เป็นนาที
-            const [existingStartHr, existingStartMin] = existingItem.startTime.time.split(':').map(Number);
-            const [existingEndHr, existingEndMin] = existingItem.endTime.time.split(':').map(Number);
-            const [newStartHr, newStartMin] = newItem.startTime.time.split(':').map(Number);
-            const [newEndHr, newEndMin] = newItem.endTime.time.split(':').map(Number);
+        const fe = (exams || []).filter(item => {
+            const d = itemToDate(item, now);
+            return d && d.getTime() >= from && d.getTime() <= to;
+        }).sort((a, b) => (itemToDate(a, now)?.getTime() || 0) - (itemToDate(b, now)?.getTime() || 0));
 
-            const existingStartMinutes = existingStartHr * 60 + existingStartMin;
-            const existingEndMinutes = existingEndHr * 60 + existingEndMin;
-            const newStartMinutes = newStartHr * 60 + newStartMin;
-            const newEndMinutes = newEndHr * 60 + newEndMin;
+        return { filteredClasses: fc, filteredExams: fe };
+    }, [classes, exams, period, nowMs]);
 
-            // ตรวจสอบการทับซ้อน: A overlaps B if A.start < B.end AND A.end > B.start
-            return newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes;
-        });
+    // ── quick-add helpers ──
+    const fmtDisplay = (d) =>
+        d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+
+    const resetQuickAdd = () => {
+        setQuickTitle(""); setQuickType("Activity"); setQuickDay(1);
+        setQuickStartTimeObj(new Date()); setQuickStartTimeStr("");
+        setQuickEndTimeObj(new Date()); setQuickEndTimeStr("");
+        setModalVisible(false);
     };
 
+    const checkOverlap = (newItem, list) =>
+        list.some(ex => {
+            if (ex.startTime.day !== newItem.startTime.day) return false;
+            const toMin = ([h, m]) => h * 60 + m;
+            const es = toMin(ex.startTime.time.split(':').map(Number));
+            const ee = toMin(ex.endTime.time.split(':').map(Number));
+            const ns = toMin(newItem.startTime.time.split(':').map(Number));
+            const ne = toMin(newItem.endTime.time.split(':').map(Number));
+            return ns < ee && ne > es;
+        });
+
     const handleAdd = () => {
-        if (!quickTitle.trim()) {
-            Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อวิชา / กิจกรรม");
-            return;
-        }
-        if (!quickStartTimeStr || !quickEndTimeStr) {
-            Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุด");
-            return;
-        }
-
-        const startTotalMinutes = quickStartTimeObj.getHours() * 60 + quickStartTimeObj.getMinutes();
-        const endTotalMinutes = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
-        if (endTotalMinutes <= startTotalMinutes) {
-            Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ");
-            return;
-        }
-
-        const selectedDay = dayMap[quickDay - 1];
+        if (!quickTitle.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อวิชา / กิจกรรม"); return; }
+        if (!quickStartTimeStr || !quickEndTimeStr) { Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุด"); return; }
+        const ss = quickStartTimeObj.getHours() * 60 + quickStartTimeObj.getMinutes();
+        const es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
+        if (es <= ss) { Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ"); return; }
+        const selDay = DAY_MAP[quickDay - 1];
         const newItem = {
             title: quickTitle,
-            startTime: genTimeBlock(selectedDay, quickStartTimeObj.getHours(), quickStartTimeObj.getMinutes()),
-            endTime: genTimeBlock(selectedDay, quickEndTimeObj.getHours(), quickEndTimeObj.getMinutes()),
+            startTime: genTimeBlock(selDay, quickStartTimeObj.getHours(), quickStartTimeObj.getMinutes()),
+            endTime: genTimeBlock(selDay, quickEndTimeObj.getHours(), quickEndTimeObj.getMinutes()),
             location: 'ไม่ระบุสถานที่',
-            extra_descriptions: []
+            extra_descriptions: [],
         };
-
-        // ตรวจสอบการทับซ้อนของเวลา
-        const currentList = quickType === "Activity" ? classes : exams;
-        if (checkTimeOverlap(newItem, currentList)) {
-            Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับ " + (quickType === "Activity" ? "วิชาเรียน" : "กิจกรรม") + " ที่มีอยู่แล้ว กรุณาเลือกเวลาที่ต่างออกไป");
+        const list = quickType === "Activity" ? classes : exams;
+        if (checkOverlap(newItem, list)) {
+            Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับรายการที่มีอยู่แล้ว");
             return;
         }
-
-        if (quickType === "Activity") {
-            timetableStore.addClass(newItem);
-        } else {
-            timetableStore.addExam(newItem);
-        }
-
+        quickType === "Activity" ? timetableStore.addClass(newItem) : timetableStore.addExam(newItem);
         resetQuickAdd();
     };
 
+    // ── period label for card headers ──
+    const periodLabel = FILTERS.find(f => f.key === period)?.label || '';
+
+    // ── render ──────────────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
-            {/* Top Header — matches Planner & Profile */}
+            {/* ── Top Header ── */}
             <View style={styles.topHeader}>
-                <View>
-                    <Text style={styles.topHeaderText}>Academic Life Planner</Text>
-                </View>
+                <Text style={styles.topHeaderText}>Academic Life Planner</Text>
                 <Ionicons name="home-outline" size={26} color="#fff" />
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {/* Page Title Row */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+                {/* ── Title Row ── */}
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>Dashboard</Text>
-                    <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => { resetQuickAdd(); setModalVisible(true); }}
-                    >
+                    <TouchableOpacity style={styles.addButton} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
                         <Ionicons name="add" size={20} color="#fff" />
                         <Text style={styles.addText}> เพิ่มด่วน</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Next Class Card */}
-                <TouchableOpacity
-                    style={styles.card}
-                    onPress={() => navigation.navigate('Timetable', { selTable: 1 })}
-                    activeOpacity={0.85}
-                >
+                {/* ── Period Filter Pills ── */}
+                <View style={styles.filterRow}>
+                    {FILTERS.map(f => {
+                        const active = period === f.key;
+                        return (
+                            <TouchableOpacity
+                                key={f.key}
+                                style={[styles.pill, active && styles.pillActive]}
+                                onPress={() => setPeriod(f.key)}
+                                activeOpacity={0.75}
+                            >
+                                <Ionicons name={f.icon} size={14} color={active ? '#fff' : '#888'} />
+                                <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                                    {' '}{f.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                {/* ── Summary Stats Card ── */}
+                <View style={styles.statsCard}>
+                    <View style={styles.statItem}>
+                        <Ionicons name="book-outline" size={24} color="#ff3b3b" />
+                        <Text style={styles.statNum}>{filteredClasses.length}</Text>
+                        <Text style={styles.statLabel}>คลาสเรียน</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                        <Ionicons name="document-text-outline" size={24} color="#ff3b3b" />
+                        <Text style={styles.statNum}>{filteredExams.length}</Text>
+                        <Text style={styles.statLabel}>การสอบ</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                        <Ionicons name="layers-outline" size={24} color="#ff3b3b" />
+                        <Text style={styles.statNum}>{filteredClasses.length + filteredExams.length}</Text>
+                        <Text style={styles.statLabel}>รวมทั้งหมด</Text>
+                    </View>
+                </View>
+
+                {/* ── Classes Card ── */}
+                <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="book-outline" size={18} color="#ff3b3b" />
-                        <Text style={styles.cardTitle}> Next Class</Text>
+                        <Text style={styles.cardTitle}> คลาสเรียน – {periodLabel}</Text>
                     </View>
 
-                    {nextClass || recentClass ? (
-                        (() => {
-                            const c = nextClass || recentClass;
-                            const timeStr = timeUntil(c);
-                            const isEnded = timeStr === 'Ended';
-                            return (
-                                <View style={{ marginTop: 6 }}>
-                                    <Text style={styles.subject}>{c.title}</Text>
-                                    <Text style={styles.timeText}>
-                                        {c.startTime.time} – {c.endTime.time}
-                                    </Text>
-                                    <View style={[styles.badge, isEnded && styles.badgeEnded]}>
-                                        <Text style={[styles.badgeText, isEnded && styles.badgeTextEnded]}>
-                                            {timeStr}
-                                        </Text>
-                                    </View>
-                                </View>
-                            );
-                        })()
-                    ) : (
+                    {filteredClasses.length === 0 ? (
                         <View style={styles.emptyRow}>
-                            <Ionicons name="calendar-outline" size={32} color="#ddd" />
-                            <Text style={styles.emptyText}>ไม่มีรายการ</Text>
+                            <Ionicons name="calendar-outline" size={36} color="#ddd" />
+                            <Text style={styles.emptyText}>ไม่มีคลาสใน{periodLabel}</Text>
                         </View>
+                    ) : (
+                        filteredClasses.map((c, i) => (
+                            <TouchableOpacity
+                                key={i}
+                                style={[styles.itemRow, i < filteredClasses.length - 1 && styles.itemRowBorder]}
+                                onPress={() => navigation.navigate('Timetable', { selTable: 1 })}
+                                activeOpacity={0.8}
+                            >
+                                {/* Day badge */}
+                                <View style={styles.dayBadge}>
+                                    <Text style={styles.dayBadgeText}>
+                                        {thaiDayShort[c.startTime?.day] || c.startTime?.day || '-'}
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.itemTitle}>{c.title}</Text>
+                                    <Text style={styles.itemSub}>
+                                        {fmtTime(c.startTime?.time)} – {fmtTime(c.endTime?.time)}
+                                        {c.location ? `  ·  ${c.location}` : ''}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward-outline" size={16} color="#ccc" />
+                            </TouchableOpacity>
+                        ))
                     )}
-                </TouchableOpacity>
+                </View>
 
-                {/* Upcoming Exams Card */}
+                {/* ── Exams Card ── */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="document-text-outline" size={18} color="#ff3b3b" />
-                        <Text style={styles.cardTitle}> Upcoming Exams</Text>
+                        <Text style={styles.cardTitle}> การสอบ – {periodLabel}</Text>
                     </View>
 
-                    {nextExam || recentExam ? (
-                        (() => {
-                            const ex = nextExam || recentExam;
-                            const timeStr = timeUntil(ex);
-                            const isEnded = timeStr === 'Ended';
-                            return (
-                                <TouchableOpacity
-                                    style={styles.examItem}
-                                    onPress={() => navigation.navigate('Timetable', { selTable: 2 })}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={{ flex: 1, marginTop: 6 }}>
-                                        <Text style={styles.subject}>{ex.title}</Text>
-                                        <Text style={styles.timeText}>
-                                            {ex.startTime.date || ex.startTime.time}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.badge, isEnded && styles.badgeEnded]}>
-                                        <Text style={[styles.badgeText, isEnded && styles.badgeTextEnded]}>
-                                            {timeStr}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })()
-                    ) : (
+                    {filteredExams.length === 0 ? (
                         <View style={styles.emptyRow}>
-                            <Ionicons name="clipboard-outline" size={32} color="#ddd" />
-                            <Text style={styles.emptyText}>ไม่มีรายการ</Text>
+                            <Ionicons name="clipboard-outline" size={36} color="#ddd" />
+                            <Text style={styles.emptyText}>ไม่มีการสอบใน{periodLabel}</Text>
                         </View>
+                    ) : (
+                        filteredExams.map((ex, i) => (
+                            <TouchableOpacity
+                                key={i}
+                                style={[styles.itemRow, i < filteredExams.length - 1 && styles.itemRowBorder]}
+                                onPress={() => navigation.navigate('Timetable', { selTable: 2 })}
+                                activeOpacity={0.8}
+                            >
+                                {/* Date badge */}
+                                <View style={[styles.dayBadge, { backgroundColor: '#FFF0F0' }]}>
+                                    <Text style={[styles.dayBadgeText, { color: '#ff3b3b' }]}>
+                                        {ex.startTime?.date
+                                            ? ex.startTime.date.slice(8)   // day of month
+                                            : (thaiDayShort[ex.startTime?.day] || '-')}
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.itemTitle}>{ex.title}</Text>
+                                    <Text style={styles.itemSub}>
+                                        {ex.startTime?.date
+                                            ? `${ex.startTime.date}  ·  ${fmtTime(ex.startTime?.time)}`
+                                            : fmtTime(ex.startTime?.time)}
+                                        {ex.location ? `  ·  ${ex.location}` : ''}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward-outline" size={16} color="#ccc" />
+                            </TouchableOpacity>
+                        ))
                     )}
                 </View>
+
             </ScrollView>
 
-            {/* Quick Add Modal */}
-            <Modal
-                visible={modalVisible}
-                animationType="slide"
-                transparent
-                onRequestClose={() => setModalVisible(false)}
-            >
+            {/* ── Quick Add Modal ── */}
+            <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>เพิ่มด่วน</Text>
 
-                        {/* Type Toggle */}
                         <View style={styles.tabContainer}>
-                            <TouchableOpacity
-                                style={[styles.tabButton, quickType === "Activity" && styles.activeTab]}
-                                onPress={() => setQuickType("Activity")}
-                            >
-                                <Text style={quickType === "Activity" ? styles.activeTabText : styles.inactiveTabText}>
-                                    ตารางเรียน
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.tabButton, quickType === "Task" && styles.activeTab]}
-                                onPress={() => setQuickType("Task")}
-                            >
-                                <Text style={quickType === "Task" ? styles.activeTabText : styles.inactiveTabText}>
-                                    ตารางสอบ
-                                </Text>
-                            </TouchableOpacity>
+                            {[['Activity', 'ตารางเรียน'], ['Task', 'ตารางสอบ']].map(([k, label]) => (
+                                <TouchableOpacity
+                                    key={k}
+                                    style={[styles.tabButton, quickType === k && styles.activeTab]}
+                                    onPress={() => setQuickType(k)}
+                                >
+                                    <Text style={quickType === k ? styles.activeTabText : styles.inactiveTabText}>{label}</Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
 
-                        {/* Title */}
                         <View style={styles.inputWrapper}>
                             <Ionicons name="create-outline" size={18} color="#666" style={styles.inputIcon} />
-                            <TextInput
-                                placeholder="ชื่อวิชา / กิจกรรม"
-                                style={styles.input}
-                                value={quickTitle}
-                                onChangeText={setQuickTitle}
-                            />
+                            <TextInput placeholder="ชื่อวิชา / กิจกรรม" style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
                         </View>
 
-                        {/* Day Selector */}
                         <Text style={styles.quickLabel}>เลือกวัน:</Text>
                         <View style={styles.quickDayRow}>
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
-                                const dayNumber = index + 1;
-                                return (
-                                    <TouchableOpacity
-                                        key={dayNumber}
-                                        style={[styles.quickDayButton, quickDay === dayNumber && styles.quickDayButtonActive]}
-                                        onPress={() => setQuickDay(dayNumber)}
-                                    >
-                                        <Text style={[styles.quickDayText, quickDay === dayNumber && styles.quickDayTextActive]}>
-                                            {dayName}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={[styles.quickDayButton, quickDay === i + 1 && styles.quickDayButtonActive]}
+                                    onPress={() => setQuickDay(i + 1)}
+                                >
+                                    <Text style={[styles.quickDayText, quickDay === i + 1 && styles.quickDayTextActive]}>{d}</Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
 
-                        {/* Time Pickers */}
                         <Text style={styles.quickLabel}>เลือกเวลา:</Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
-                            <TouchableOpacity
-                                style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]}
-                                onPress={() => setShowQuickStartPicker(true)}
-                            >
+                        <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]} onPress={() => setShowQuickStartPicker(true)}>
                                 <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: quickStartTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>
-                                    {quickStartTimeStr || "เวลาเริ่ม"}
-                                </Text>
+                                <Text style={{ color: quickStartTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickStartTimeStr || "เวลาเริ่ม"}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]}
-                                onPress={() => setShowQuickEndPicker(true)}
-                            >
+                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]} onPress={() => setShowQuickEndPicker(true)}>
                                 <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: quickEndTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>
-                                    {quickEndTimeStr || "เวลาสิ้นสุด"}
-                                </Text>
+                                <Text style={{ color: quickEndTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickEndTimeStr || "เวลาสิ้นสุด"}</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* Action Buttons */}
                         <View style={styles.modalButtonRow}>
                             <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee" }]} onPress={resetQuickAdd}>
                                 <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
@@ -447,159 +380,104 @@ const Dashboard = ({ navigation }) => {
             </Modal>
 
             {showQuickStartPicker && (
-                <DateTimePicker
-                    value={quickStartTimeObj}
-                    mode="time"
-                    display="default"
-                    is24Hour={true}
-                    onChange={onChangeQuickStartTime}
-                />
+                <DateTimePicker value={quickStartTimeObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowQuickStartPicker(false); if (t) { setQuickStartTimeObj(t); setQuickStartTimeStr(fmtDisplay(t)); } }} />
             )}
-
             {showQuickEndPicker && (
-                <DateTimePicker
-                    value={quickEndTimeObj}
-                    mode="time"
-                    display="default"
-                    is24Hour={true}
-                    onChange={onChangeQuickEndTime}
-                />
+                <DateTimePicker value={quickEndTimeObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowQuickEndPicker(false); if (t) { setQuickEndTimeObj(t); setQuickEndTimeStr(fmtDisplay(t)); } }} />
             )}
         </View>
     );
 };
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F8F9FA" },
 
-    /* ── Top Header: identical pattern to Planner & Profile ── */
     topHeader: {
         backgroundColor: "#ff3b3b",
-        paddingHorizontal: 20,
-        paddingTop: 15,
-        paddingBottom: 15,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        elevation: 5,
+        paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5,
     },
     topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
 
     scrollContent: { padding: 20, paddingBottom: 40 },
 
-    /* ── Title Row ── */
-    titleRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 25,
-    },
+    titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 },
     title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
-    addButton: {
-        flexDirection: "row",
-        backgroundColor: "#ff3b3b",
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 12,
-        alignItems: "center",
-    },
+    addButton: { flexDirection: "row", backgroundColor: "#ff3b3b", paddingVertical: 8, paddingHorizontal: 15, borderRadius: 12, alignItems: "center" },
     addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
 
-    /* ── Cards: same style as Profile card ── */
-    card: {
-        backgroundColor: "#fff",
-        padding: 20,
-        borderRadius: 20,
-        elevation: 2,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
+    /* Filter Pills */
+    filterRow: { flexDirection: "row", marginBottom: 20, gap: 8 },
+    pill: {
+        flexDirection: "row", alignItems: "center",
+        paddingVertical: 8, paddingHorizontal: 14,
+        borderRadius: 20, backgroundColor: "#fff",
+        borderWidth: 1, borderColor: "#E9ECEF",
+        elevation: 1,
     },
-    cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+    pillActive: { backgroundColor: "#ff3b3b", borderColor: "#ff3b3b" },
+    pillText: { fontSize: 13, fontWeight: "600", color: "#888" },
+    pillTextActive: { color: "#fff" },
+
+    /* Stats Card */
+    statsCard: {
+        backgroundColor: "#fff", borderRadius: 20, padding: 20, marginBottom: 20,
+        flexDirection: "row", alignItems: "center", justifyContent: "space-around",
+        elevation: 2, borderWidth: 1, borderColor: "#E9ECEF",
+    },
+    statItem: { alignItems: "center", flex: 1 },
+    statNum: { fontSize: 26, fontWeight: "800", color: "#1a1a1a", marginTop: 4 },
+    statLabel: { fontSize: 12, color: "#888", marginTop: 2 },
+    statDivider: { width: 1, height: 50, backgroundColor: "#E9ECEF" },
+
+    /* Content Cards */
+    card: {
+        backgroundColor: "#fff", padding: 20, borderRadius: 20,
+        elevation: 2, marginBottom: 20, borderWidth: 1, borderColor: "#E9ECEF",
+    },
+    cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
     cardTitle: { fontSize: 16, fontWeight: "bold", color: "#ff3b3b" },
 
-    subject: { fontSize: 18, fontWeight: "700", color: "#222", marginBottom: 4 },
-    timeText: { fontSize: 14, color: "#666", marginBottom: 10 },
-
-    badge: {
-        alignSelf: "flex-start",
-        backgroundColor: "#FFF0F0",
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: "#FECDD3",
+    itemRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 12 },
+    itemRowBorder: { borderBottomWidth: 1, borderBottomColor: "#F1F3F5" },
+    dayBadge: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: "#F1F3F5",
+        justifyContent: "center", alignItems: "center",
     },
-    badgeText: { fontSize: 13, color: "#ff3b3b", fontWeight: "bold" },
-    badgeEnded: { backgroundColor: "#F1F3F5", borderColor: "#DEE2E6" },
-    badgeTextEnded: { color: "#888" },
+    dayBadgeText: { fontSize: 13, fontWeight: "700", color: "#555" },
+    itemTitle: { fontSize: 15, fontWeight: "700", color: "#222", marginBottom: 2 },
+    itemSub: { fontSize: 12, color: "#888" },
 
-    examItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-
-    emptyRow: { alignItems: "center", paddingVertical: 20, gap: 8 },
+    emptyRow: { alignItems: "center", paddingVertical: 24, gap: 8 },
     emptyText: { color: "#aaa", fontSize: 14 },
 
-    /* ── Modal ── */
-    modalContainer: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0,0,0,0.4)",
-    },
-    modalContent: {
-        backgroundColor: "#fff",
-        padding: 25,
-        borderTopLeftRadius: 25,
-        borderTopRightRadius: 25,
-    },
+    /* Modal */
+    modalContainer: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+    modalContent: { backgroundColor: "#fff", padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
     modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a" },
 
-    tabContainer: {
-        flexDirection: "row",
-        backgroundColor: "#F1F3F5",
-        borderRadius: 20,
-        padding: 6,
-        marginBottom: 20,
-    },
+    tabContainer: { flexDirection: "row", backgroundColor: "#F1F3F5", borderRadius: 20, padding: 6, marginBottom: 20 },
     tabButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 16 },
-    activeTab: { backgroundColor: "#fff", elevation: 3, shadowOpacity: 0.1 },
+    activeTab: { backgroundColor: "#fff", elevation: 3 },
     activeTabText: { color: "#ff3b3b", fontWeight: "bold" },
     inactiveTabText: { color: "#adb5bd" },
 
-    inputWrapper: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#F1F3F5",
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
-        marginBottom: 15,
-    },
+    inputWrapper: { flexDirection: "row", alignItems: "center", backgroundColor: "#F1F3F5", borderRadius: 12, borderWidth: 1, borderColor: "#E9ECEF", marginBottom: 15 },
     inputIcon: { paddingLeft: 12 },
     input: { flex: 1, padding: 12, fontSize: 16, color: "#333" },
 
     quickLabel: { fontSize: 14, fontWeight: "600", color: "#555", marginBottom: 10 },
     quickDayRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
-    quickDayButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 6,
-        borderRadius: 10,
-        backgroundColor: "#F1F3F5",
-        alignItems: "center",
-        minWidth: 40,
-    },
+    quickDayButton: { paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, backgroundColor: "#F1F3F5", alignItems: "center", minWidth: 40 },
     quickDayButtonActive: { backgroundColor: "#ff3b3b" },
     quickDayText: { fontSize: 11, color: "#555", fontWeight: "600" },
     quickDayTextActive: { color: "#fff", fontWeight: "bold" },
 
     modalButtonRow: { flexDirection: "row" },
-    modalButton: {
-        flex: 1,
-        paddingVertical: 15,
-        borderRadius: 15,
-        alignItems: "center",
-    },
+    modalButton: { flex: 1, paddingVertical: 15, borderRadius: 15, alignItems: "center" },
 });
 
 export default Dashboard;
