@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { auth } from '../firebaseConfig';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-
+import { Ionicons } from "@expo/vector-icons";
 export default function Autithentication() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -32,8 +32,11 @@ export default function Autithentication() {
     }
 
     return (
-        <View style={styles.authContainerWrapper}>
-            <Text style={styles.hearderText}>Academic Life Planner</Text>
+        <View style={{ paddingTop: 50 }}>
+            <View style={styles.topHeader}>
+                <Text style={styles.topHeaderText}>Academic Life Planner</Text>
+                <Ionicons name="home-outline" size={26} color="#fff" />
+            </View>
             <Text style={[styles.buttonText, { fontSize: 24, alignSelf: "center", marginBottom: 20 }]}>
                 {isLoginMode ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
             </Text>
@@ -73,7 +76,7 @@ export default function Autithentication() {
 const styles = StyleSheet.create({
     authContainerWrapper: {
         flex: 1,
-        backgroundColor: 'lightsalmon',
+        backgroundColor: 'white',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 40,
@@ -125,5 +128,13 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: 'white'
-    }
+    },
+    topHeader: {
+        backgroundColor: "#ff3b3b",
+        paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5,
+        width: "100%"
+    },
+    topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
 });
