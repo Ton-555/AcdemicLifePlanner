@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
+import { collection, addDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -19,6 +21,61 @@ export default function Profile() {
   const [year, setYear] = useState("");
   const [image, setImage] = useState(null);
 
+  const COLUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvyf9nd9s/image/upload';
+  const UPLOAD_PRESET = 'y9zcvfzw';
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const fetchUser = async () => {
+    try {
+      const q = query(collection(db, 'users'), orderBy('createAt', 'desc'), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        setName(data.name || "");
+        setFaculty(data.faculty || "");
+        setYear(data.year ? data.year.toString() : "");
+        setImage(data.profilePicture || null);
+      }
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดการดึงข้อมูล", error);
+    }
+  };
+
+  const uploadToCloudinary = async (uri) => {
+    const data = new FormData();
+    data.append('file', {
+      uri: uri,
+      type: 'image/jpeg',
+      name: 'profile_image.jpg'
+    });
+
+    data.append('upload_preset', UPLOAD_PRESET);
+
+    try {
+      const response = await fetch(COLUDINARY_URL, {
+        method: 'POST',
+        body: data
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("Cloudinary Error:", result.error.message);
+        Alert.alert("อัปโหลดรูปไม่สำเร็จ", result.error.message);
+        return null;
+      }
+
+      return result.secure_url;
+    } catch (error) {
+      console.error("upload รูปไม่สำเร็จ (Network Error):", error);
+      return null;
+    }
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -40,12 +97,39 @@ export default function Profile() {
     }
   };
 
-  const handleSave = () => {
-    if (!name.trim()) {
-      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่ออย่างน้อยหนึ่งช่อง");
+  const handleSave = async () => {
+    if (!name.trim() || !faculty.trim() || !year.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
-    Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
+
+    try {
+      let imageUrl = image;
+
+      if (image && !image.startsWith('http')) {
+        Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลและอัปโหลดกรุณารอสักครู่");
+        imageUrl = await uploadToCloudinary(image);
+        if (imageUrl) {
+          setImage(imageUrl);
+        }
+      } else {
+        Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลกรุณารอสักครู่");
+      }
+
+      await addDoc(collection(db, 'users'), {
+        name: name,
+        faculty: faculty,
+        year: parseInt(year) || 0,
+        profilePicture: imageUrl,
+        createAt: new Date()
+      });
+
+      await fetchUser();
+      Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
+    } catch (error) {
+      console.error("บันทึกไม่สำเร็จ", error);
+      Alert.alert("ผิดพลาด", "ไม่สามารถบันทึกข้อมูลได้");
+    }
   };
 
   const handleClear = () => {
