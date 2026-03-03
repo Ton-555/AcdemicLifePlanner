@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
-import { collection, addDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebaseConfig';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -28,13 +29,24 @@ export default function Profile() {
     fetchUser();
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout Error:", error);
+      Alert.alert("ผิดพลาด", "ไม่สามารถออกจากระบบได้");
+    }
+  };
+
   const fetchUser = async () => {
     try {
-      const q = query(collection(db, 'users'), orderBy('createAt', 'desc'), limit(1));
-      const querySnapshot = await getDocs(q);
+      const user = auth.currentUser;
+      if (!user) return;
 
-      if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
         const data = docSnap.data();
         setName(data.name || "");
         setFaculty(data.faculty || "");
@@ -104,6 +116,12 @@ export default function Profile() {
     }
 
     try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("ข้อผิดพลาด", "ไม่พบข้อมูลผู้ใช้งาน");
+        return;
+      }
+
       let imageUrl = image;
 
       if (image && !image.startsWith('http')) {
@@ -116,13 +134,14 @@ export default function Profile() {
         Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลกรุณารอสักครู่");
       }
 
-      await addDoc(collection(db, 'users'), {
+      const docRef = doc(db, 'users', user.uid);
+      await setDoc(docRef, {
         name: name,
         faculty: faculty,
         year: parseInt(year) || 0,
         profilePicture: imageUrl,
-        createAt: new Date()
-      });
+        updateAt: new Date()
+      }, { merge: true });
 
       await fetchUser();
       Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
@@ -240,10 +259,16 @@ export default function Profile() {
             <Text style={[styles.warningTitle, { marginLeft: 5 }]}>Danger Zone</Text>
           </View>
           <Text style={styles.warningText}>
-            การกดปุ่มด้านล่างจะทำให้ข้อมูลทั้งหมดรวมถึงรูปภาพถูกลบออก
+            ออกจากระบบ หรือลบข้อมูลทั้งหมดรวมถึงรูปภาพถูกลบออก
           </Text>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleClear}>
 
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}> ออกจากระบบ</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteButton} onPress={handleClear}>
+            <Ionicons name="trash-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}> ลบข้อมูลทั้งหมด</Text>
           </TouchableOpacity>
         </View>
@@ -349,6 +374,15 @@ const styles = StyleSheet.create({
   },
   warningTitle: { color: "red", fontWeight: "bold", fontSize: 16 },
   warningText: { color: "#666", fontSize: 13, marginBottom: 15 },
+  logoutButton: {
+    backgroundColor: "#ff9500",
+    flexDirection: "row",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
   deleteButton: {
     backgroundColor: "#333",
     flexDirection: "row",
