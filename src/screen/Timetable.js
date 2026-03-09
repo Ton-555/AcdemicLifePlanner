@@ -4,19 +4,24 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import timetableStore from '../data/TimetableStore'
 
+
+// สร้าง Object เวลาและวันที่มาตรฐาน
 const genTimeBlock = (day, hour, minute, date = null) => {
   return { day: day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date: date };
 };
 
+// ชื่อย่อวัน
 const dayMap = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-const Timetable = () => {
+export default function Timetable() {
+  // สถานะ ตารางเรียนหรือตารางสอบ
   const [selTable, setSelTable] = useState(1);
+  // สถานะเลือกดูวันไหน
   const [selDay, setDay] = useState(1);
   const [selExamDay, setExamDay] = useState(1);
   const [classes, setClasses] = useState(timetableStore.getClasses());
   const [exams, setExams] = useState(timetableStore.getExams());
-
+ 
   useEffect(() => {
     const unsub = timetableStore.subscribe(({ classes: nc, exams: ne }) => {
       setClasses(nc);
@@ -25,6 +30,7 @@ const Timetable = () => {
     return () => unsub();
   }, []);
 
+  // สถานะการแก้ไข/เพิ่มข้อมูล 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
 
@@ -46,6 +52,7 @@ const Timetable = () => {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [endTimeStr, setEndTimeStr] = useState("");
 
+  // แปลงจาก Object เป็น String YYYY-MM-DD
   const formatDateToString = (dateObj) => {
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -53,7 +60,7 @@ const Timetable = () => {
     return `${year}-${month}-${day}`;
   };
 
-
+  // หาวันในสัปดาห์ MON-SUN จากวันที่เลือก
   const getDayFromDate = (dateObj) => {
     const dayOfWeek = dateObj.getDay();
     const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -92,6 +99,7 @@ const Timetable = () => {
     }
   };
 
+  // กรองข้อมูล เรียน หรือ สอบ ตามวันที่ถูกกดเลือก และจัดเรียงเวลาจากเช้าไปเย็น
   const currentDataList = selTable === 1 ? classes : exams;
   const selectedDayString = selTable === 1 ? dayMap[selDay - 1] : dayMap[selExamDay - 1];
   const displayData = currentDataList
@@ -113,26 +121,21 @@ const Timetable = () => {
       return aTotalMinutes - bTotalMinutes;
     });
 
+  //ป้องกันตารางซ้อนกัน
   const checkTimeOverlap = (newItem, currentList, excludeIndex = null) => {
     return currentList.some((existingItem, index) => {
-      // ข้ามรายการที่กำลังแก้ไข (edit mode)
       if (excludeIndex !== null && index === excludeIndex) {
         return false;
       }
 
-      // ตรวจสอบวันเดียวกันหรือวันที่เดียวกัน
       const isSameDay = existingItem.startTime.day === newItem.startTime.day;
       const isSameDate = existingItem.startTime.date === newItem.startTime.date;
-
-      // สำหรับ class (ไม่มี date) ตรวจสอบวันเท่านั้น
-      // สำหรับ exam (มี date) ตรวจสอบวันที่เท่านั้น
       const isSameDayOrDate = selTable === 1 ? isSameDay : isSameDate;
 
       if (!isSameDayOrDate) {
         return false;
       }
 
-      // แปลง time strings เป็นนาที
       const [existingStartHr, existingStartMin] = existingItem.startTime.time.split(':').map(Number);
       const [existingEndHr, existingEndMin] = existingItem.endTime.time.split(':').map(Number);
       const [newStartHr, newStartMin] = newItem.startTime.time.split(':').map(Number);
@@ -143,11 +146,12 @@ const Timetable = () => {
       const newStartMinutes = newStartHr * 60 + newStartMin;
       const newEndMinutes = newEndHr * 60 + newEndMin;
 
-      // ตรวจสอบการทับซ้อน: A overlaps B if A.start < B.end AND A.end > B.start
+
       return newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes;
     });
   };
 
+  // ดึงข้อมูลเดิมมาเพื่อเตรียมแก้ไข
   const handleEditItem = (item) => {
     const actualIndex = (selTable === 1 ? classes : exams).indexOf(item);
     setIsEditMode(true);
@@ -184,6 +188,7 @@ const Timetable = () => {
     setModalVisible(true);
   };
 
+  // บันทึกข้อมูลตารางใหม่ 
   const handleSaveData = () => {
     if (!newTitle || !startTimeStr || !endTimeStr) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อวิชา เวลาเริ่ม และเวลาสิ้นสุด");
@@ -213,10 +218,9 @@ const Timetable = () => {
       extra_descriptions: extraDescArray
     };
 
-    // ตรวจสอบการทับซ้อนของเวลา
     const currentList = selTable === 1 ? classes : exams;
     const excludeIdx = isEditMode ? editIndex : null;
-    
+
     if (checkTimeOverlap(newItem, currentList, excludeIdx)) {
       Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับ " + (selTable === 1 ? "วิชาเรียน" : "กิจกรรม") + " ที่มีอยู่แล้ว กรุณาเลือกเวลาที่ต่างออกไป");
       return;
@@ -268,6 +272,7 @@ const Timetable = () => {
     setModalVisible(false);
   };
 
+  // ลบรายวิชา หรือกิจกรรมการสอบออกจากฐานข้อมูล
   const handleDeleteItem = () => {
     Alert.alert("ลบรายการ", "คุณต้องการลบรายการนี้ใช่หรือไม่?", [
       { text: "ยกเลิก", style: "cancel" },
@@ -296,7 +301,7 @@ const Timetable = () => {
       <View style={{ padding: 20 }} >
         <Text style={styles.title}>Time table</Text>
         <View style={styles.toggleButton}>
-
+          {/* สลับดู ตารางเรียน ตารางสอบ */}
           <TouchableOpacity style={[styles.selTableButton, selTable === 1 && styles.activeSelTableButton]} onPress={() => setSelTable(1)}>
             <Text style={selTable === 1 ? styles.activeText : styles.inActiveText}>ตารางเรียน</Text>
           </TouchableOpacity>
@@ -309,6 +314,7 @@ const Timetable = () => {
 
         <View style={{ padding: 10 }} />
 
+        {/* แถบเลือกวันจันทร์ - อาทิตย์ */}
         <View style={styles.toggleDayButton}>
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, index) => {
             const dayNumber = index + 1;
@@ -473,7 +479,11 @@ const Timetable = () => {
 }
 
 const styles = StyleSheet.create({
-  containner: { flex: 1, backgroundColor: '#F8F9FA', alignItems: 'center' },
+  containner: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center'
+  },
   topHeader: {
     width: '100%',
     backgroundColor: "#ff3b3b",
@@ -487,57 +497,317 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     elevation: 5,
   },
-  title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
-  topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 24 },
-  hearderText: { fontSize: 24, fontWeight: 'bold', paddingTop: 10, paddingBottom: 10 },
-  toggleButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: 220, paddingVertical: 5, backgroundColor: "#F1F3F5", borderRadius: 10 },
-  selTableButton: { width: 100, height: 45, backgroundColor: "white", justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5, elevation: 3, shadowOpacity: 0.1 },
-  activeSelTableButton: { backgroundColor: "white" },
-  activeText: { color: "#ff3b3b", fontWeight: "bold" },
-  inActiveText: { color: 'grey' },
-  toggleDayButton: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '95%', paddingVertical: 5, backgroundColor: '#F1F3F5', borderRadius: 10 },
-  selDayButton: { width: 40, height: 45, backgroundColor: '#F1F3F5', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 2 },
-  fontDayActive: { fontSize: 12, color: "#ff3b3b", fontWeight: 'bold' },
-  fontDayInActive: { fontSize: 10, color: 'grey' },
-  activeSelDayButton: { width: 50, height: 50, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 5 },
-  listContainer: { width: '90%', marginTop: 20 },
-  card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  cardDate: { fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' },
-  cardTime: { fontSize: 14, color: '#666', marginBottom: 5 },
-  cardLocation: { fontSize: 14, color: '#666' },
-  cardExtra: { fontSize: 12, color: '#d9534f', marginTop: 8, fontStyle: 'italic' },
-  noDataText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#3d3d3dff' },
-  fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: "#ff3b3b", borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 } },
-  fabText: { fontSize: 30, color: 'white', fontWeight: 'bold', marginTop: -2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', maxHeight: '90%', backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 5 },
-  modalHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  input: { backgroundColor: '#f0f0f0', borderRadius: 10, padding: 12, marginBottom: 10, fontSize: 16 },
-  inputLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 5, color: '#333' },
-  daySelectContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', marginBottom: 15 },
-  daySelectButton: { width: '13%', paddingVertical: 8, paddingHorizontal: 3, backgroundColor: '#f0f0f0', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  activeSelectDayButton: { backgroundColor: '#007AFF' },
-  daySelectText: { fontSize: 11, color: '#333', fontWeight: '600' },
-  activeSelectDayText: { color: 'white', fontWeight: 'bold' },
-  modalButton: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 10, marginHorizontal: 5 },
-  dateDisplayButton: { backgroundColor: '#f0f0f0', borderRadius: 10, padding: 15, marginBottom: 15, borderWidth: 2, borderColor: '#007AFF', alignItems: 'center' },
-  dateDisplayButtonText: { fontSize: 18, fontWeight: 'bold', color: '#007AFF', marginBottom: 5 },
-  dateDisplayButtonSubtext: { fontSize: 12, color: '#666' },
-  datePickerModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  datePickerModalContent: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 30 },
-  datePickerModalHeader: { fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
-  datePickerScrollRow: { flexDirection: 'row', justifyContent: 'space-around', height: 200, marginBottom: 20 },
-  datePickerColumn: { flex: 1, alignItems: 'center' },
-  datePickerColumnLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 10 },
-  datePickerScroll: { flex: 1, width: '100%' },
-  datePickerItem: { height: 40, justifyContent: 'center', alignItems: 'center', paddingVertical: 8 },
-  datePickerItemText: { fontSize: 16, color: '#666' },
-  datePickerItemActive: { backgroundColor: '#007AFF', borderRadius: 8 },
-  datePickerItemActiveText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  datePickerButtonContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-  datePickerButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, marginHorizontal: 5 },
-  datePickerButtonText: { fontSize: 16, fontWeight: '600' }
+  title: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#1a1a1a",
+    marginBottom: 20
+  },
+  topHeaderText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 24
+  },
+  hearderText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    paddingTop: 10,
+    paddingBottom: 10
+  },
+  toggleButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: 220,
+    paddingVertical: 5,
+    backgroundColor: "#F1F3F5",
+    borderRadius: 10
+  },
+  selTableButton: {
+    width: 100,
+    height: 45,
+    backgroundColor: "white",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    margin: 5,
+    elevation: 3,
+    shadowOpacity: 0.1
+  },
+  activeSelTableButton: {
+    backgroundColor: "white"
+  },
+  activeText: {
+    color: "#ff3b3b",
+    fontWeight: "bold"
+  },
+  inActiveText: {
+    color: 'grey'
+  },
+  toggleDayButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '95%',
+    paddingVertical: 5,
+    backgroundColor: '#F1F3F5',
+    borderRadius: 10
+  },
+  selDayButton: {
+    width: 40,
+    height: 45,
+    backgroundColor: '#F1F3F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    margin: 2
+  },
+  fontDayActive: {
+    fontSize: 12,
+    color: "#ff3b3b",
+    fontWeight: 'bold'
+  },
+  fontDayInActive: {
+    fontSize: 10,
+    color: 'grey'
+  },
+  activeSelDayButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    margin: 5
+  },
+  listContainer: {
+    width: '90%',
+    marginTop: 20
+  },
+  card: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5
+  },
+  cardDate: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 5,
+    fontWeight: '500'
+  },
+  cardTime: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5
+  },
+  cardLocation: {
+    fontSize: 14,
+    color: '#666'
+  },
+  cardExtra: {
+    fontSize: 12,
+    color: '#d9534f',
+    marginTop: 8,
+    fontStyle: 'italic'
+  },
+  noDataText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#3d3d3dff'
+  },
+  fab: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 20,
+    backgroundColor: "#ff3b3b",
+    borderRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 }
+  },
+  fabText: {
+    fontSize: 30,
+    color: 'white',
+    fontWeight: 'bold',
+    marginTop: -2
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContent: {
+    width: '85%',
+    maxHeight: '90%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5
+  },
+  modalHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center'
+  },
+  input: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    fontSize: 16
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 5,
+    color: '#333'
+  },
+  daySelectContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 15
+  },
+  daySelectButton: {
+    width: '13%',
+    paddingVertical: 8,
+    paddingHorizontal: 3,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8
+  },
+  activeSelectDayButton: {
+    backgroundColor: '#007AFF'
+  },
+  daySelectText: {
+    fontSize: 11,
+    color: '#333',
+    fontWeight: '600'
+  },
+  activeSelectDayText: {
+    color: 'white',
+    fontWeight: 'bold'
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+    marginHorizontal: 5
+  },
+  dateDisplayButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    alignItems: 'center'
+  },
+  dateDisplayButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 5
+  },
+  dateDisplayButtonSubtext: {
+    fontSize: 12,
+    color: '#666'
+  },
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end'
+  },
+  datePickerModalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 30
+  },
+  datePickerModalHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333'
+  },
+  datePickerScrollRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    height: 200,
+    marginBottom: 20
+  },
+  datePickerColumn: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  datePickerColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 10
+  },
+  datePickerScroll: {
+    flex: 1,
+    width: '100%'
+  },
+  datePickerItem: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8
+  },
+  datePickerItemText: {
+    fontSize: 16,
+    color: '#666'
+  },
+  datePickerItemActive: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8
+  },
+  datePickerItemActiveText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18
+  },
+  datePickerButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  datePickerButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+    marginHorizontal: 5
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    fontWeight: '600'
+  }
 });
-
-export default Timetable;

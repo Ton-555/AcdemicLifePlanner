@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Ionicons } from "@expo/vector-icons";
+
 export default function Autithentication() {
+    // ข้อมูลผู้ใช้งาน
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [isLoginMode, setIsLoginMode] = useState(true);
+    const [isLoginMode, setIsLoginMode] = useState(true); // เข้าสู่ระบบ สมัครสมาชิก
 
+    // ฟังก์ชันจัดการการเข้าสู่ระบบและลงทะเบียน
     const handleAuthen = async () => {
-        if (!email || !password) {
+        if (!isLoginMode && (!firstName || !lastName || !email || !password)) {
+            Alert.alert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
+            return;
+        }
+        if (isLoginMode && (!email || !password)) {
             Alert.alert("แจ้งเตือน", "กรุณากรอกอีเมลและรหัสผ่านให้ครบทุกช่อง");
             return;
         }
@@ -17,11 +27,15 @@ export default function Autithentication() {
         try {
             if (isLoginMode) {
                 await signInWithEmailAndPassword(auth, email, password);
-                // Alert is handled by effect in App.js or we can leave it implicit. 
-                // App.js will naturally swap out this screen
             } else {
-                await createUserWithEmailAndPassword(auth, email, password);
-                // Alert is handled by App.js or implicit by state change.
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                const docRef = doc(db, 'users', user.uid);
+                await setDoc(docRef, {
+                    name: `${firstName} ${lastName}`,
+                    email: email,
+                    createdAt: new Date()
+                }, { merge: true });
             }
         } catch (error) {
             let msg = error.message;
@@ -37,11 +51,31 @@ export default function Autithentication() {
                 <Text style={styles.topHeaderText}>Academic Life Planner</Text>
                 <Ionicons name="home-outline" size={26} color="#fff" />
             </View>
+
+            <View style={{ paddingTop: 20 }} />
+
             <Text style={[styles.buttonText, { fontSize: 24, alignSelf: "center", marginBottom: 20 }]}>
                 {isLoginMode ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
             </Text>
 
             <View style={styles.inputContainer}>
+                {!isLoginMode && (
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginRight: 5 }]}
+                            placeholder="ชื่อ"
+                            value={firstName}
+                            onChangeText={setFirstName}
+                        />
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                            placeholder="นามสกุล"
+                            value={lastName}
+                            onChangeText={setLastName}
+                        />
+                    </View>
+                )}
+
                 <TextInput
                     style={styles.input}
                     placeholder="Email"
@@ -98,7 +132,7 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowRadius: 3.85,
     },
     input: {
         width: '100%',
@@ -112,7 +146,7 @@ const styles = StyleSheet.create({
     button: {
         width: '100%',
         height: 50,
-        backgroundColor: '#ff3b3b',
+        backgroundColor: '#007BFF',
         borderRadius: 10,
         padding: 10,
         marginTop: 20,
@@ -131,10 +165,20 @@ const styles = StyleSheet.create({
     },
     topHeader: {
         backgroundColor: "#ff3b3b",
-        paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5,
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        paddingBottom: 15,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 5,
         width: "100%"
     },
-    topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+    topHeaderText: {
+        color: "#fff",
+        fontSize: 24,
+        fontWeight: "bold"
+    },
 });

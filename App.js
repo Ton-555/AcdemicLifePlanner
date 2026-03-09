@@ -19,14 +19,15 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
+  // ตรวจสอบสถานะข้าสู่ระบบผ่าน Firebase
   useEffect(() => {
     const subscriber = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      // Give store the UID (or null) so it fetches data
+      // ส่ง UID ให้ Store เพื่อเตรียมโหลดตารางเรียนของผู้ใช้นี้
       timetableStore.setUserId(currentUser ? currentUser.uid : null);
       if (initializing) setInitializing(false);
     });
-    return subscriber; // unsubscribe on unmount
+    return subscriber;
   }, [initializing]);
 
   if (initializing) {
@@ -37,6 +38,7 @@ export default function App() {
     );
   }
 
+  // หากไม่มีผู้ล็อกอิน ให้แสดงหน้าเข้าสู่ระบบ
   if (!user) {
     return <Autithentication />;
   }

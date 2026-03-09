@@ -2,22 +2,24 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 const timetableStore = {
-  uid: null,
-  classes: [],
-  exams: [],
-  listeners: new Set(),
+  uid: null,                     // รหัสผู้ใช้ที่ล็อกอินอยู่
+  classes: [],                   // ข้อมูลตารางเรียน
+  exams: [],                     // ข้อมูลตารางสอบ
+  listeners: new Set(),          // ระบบแจ้งหน้าจออื่นๆ ให้ทราบเมื่อข้อมูลเปลี่ยน
 
+  // ฟังก์ชันรับค่า User ID เมื่อมีการล็อกอินหรือออกจากระบบ
   setUserId(uid) {
     this.uid = uid;
     if (uid) {
-      this.fetchFromFirebase();
+      this.fetchFromFirebase();  
     } else {
-      this.classes = [];
+      this.classes = [];         
       this.exams = [];
       this.emit();
     }
   },
 
+  // ดึงข้อมูลจาก Firebase มาเก็บใน Store
   async fetchFromFirebase() {
     if (!this.uid) return;
     try {
@@ -31,12 +33,13 @@ const timetableStore = {
         this.classes = [];
         this.exams = [];
       }
-      this.emit();
+      this.emit();               
     } catch (error) {
       console.error("Error fetching timetable data:", error);
     }
   },
 
+  // ฟังก์ชันบันทึกข้อมูลย้อนกลับขึ้น Firebase
   async syncToFirebase() {
     if (!this.uid) return;
     try {
@@ -47,13 +50,16 @@ const timetableStore = {
     }
   },
 
+  // ดึงข้อมูลไปใช้
   getClasses() { return [...this.classes]; },
   getExams() { return [...this.exams]; },
 
+  // จัดการเพิ่ม/แก้/ลบ วิชาเรียน
   addClass(item) { this.classes = [...this.classes, item]; this.syncToFirebase(); this.emit(); },
   updateClass(index, item) { const c = [...this.classes]; c[index] = item; this.classes = c; this.syncToFirebase(); this.emit(); },
   deleteClass(index) { const c = [...this.classes]; c.splice(index, 1); this.classes = c; this.syncToFirebase(); this.emit(); },
 
+  // จัดการเพิ่ม/แก้/ลบ การสอบ
   addExam(item) { this.exams = [...this.exams, item]; this.syncToFirebase(); this.emit(); },
   updateExam(index, item) { const e = [...this.exams]; e[index] = item; this.exams = e; this.syncToFirebase(); this.emit(); },
   deleteExam(index) { const e = [...this.exams]; e.splice(index, 1); this.exams = e; this.syncToFirebase(); this.emit(); },

@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-  Image,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, Image, Platform, } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -21,10 +11,10 @@ export default function Profile() {
   const [faculty, setFaculty] = useState("");
   const [year, setYear] = useState("");
   const [image, setImage] = useState(null);
-
   const COLUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvyf9nd9s/image/upload';
   const UPLOAD_PRESET = 'y9zcvfzw';
 
+  // ดึงข้อมูลผู้ใช้งาน
   useEffect(() => {
     fetchUser();
   }, []);
@@ -38,6 +28,7 @@ export default function Profile() {
     }
   };
 
+  // ดึงข้อมูลผู้ใช้งานจาก Firestore มาแสดงบนหน้าจอ
   const fetchUser = async () => {
     try {
       const user = auth.currentUser;
@@ -58,6 +49,7 @@ export default function Profile() {
     }
   };
 
+  // อัปโหลดรูปภาพไปยัง Cloudinary 
   const uploadToCloudinary = async (uri) => {
     const data = new FormData();
     data.append('file', {
@@ -89,6 +81,7 @@ export default function Profile() {
     }
   };
 
+  // เปิดคลังรูปภาพในมือถือเพื่อเลือกรูปใหม่
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -109,6 +102,7 @@ export default function Profile() {
     }
   };
 
+  // บันทึกข้อมูลและอัปโหลดรูปภาพโปรไฟล์ใหม่ลง Firestore
   const handleSave = async () => {
     if (!name.trim() || !faculty.trim() || !year.trim()) {
       Alert.alert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
@@ -124,6 +118,7 @@ export default function Profile() {
 
       let imageUrl = image;
 
+      // ถ้าผู้ใช้เลือกรูปใหม่ ไม่ใช่ URL เดิมจากเซิร์ฟเวอร์ให้ทำการอัปโหลดใหม่
       if (image && !image.startsWith('http')) {
         Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลและอัปโหลดกรุณารอสักครู่");
         imageUrl = await uploadToCloudinary(image);
@@ -143,6 +138,7 @@ export default function Profile() {
         updateAt: new Date()
       }, { merge: true });
 
+      // ดึงข้อมูลมาอัปเดตหน้าจอหลังจากบันทึกเสร็จ
       await fetchUser();
       Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
     } catch (error) {
@@ -151,6 +147,7 @@ export default function Profile() {
     }
   };
 
+  // ส่วนของการลบข้อมูล (เคลียร์ข้อมูลทั้งหมดในหน้าโปรไฟล์)
   const handleClear = () => {
     Alert.alert(
       "ยืนยันการลบข้อมูล",
@@ -173,7 +170,6 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.topHeader}>
         <View>
           <Text style={styles.topHeaderText}>Academic Life Planner</Text>
@@ -194,7 +190,6 @@ export default function Profile() {
               ) : (
                 <Ionicons name="person" size={50} color="#ff3b3b" />
               )}
-              {/* ปุ่มไอคอนกล้องเล็กๆ มุมขวาล่างของรูป */}
               <View style={styles.cameraIconBadge}>
                 <Ionicons name="camera" size={16} color="#fff" />
               </View>
@@ -253,7 +248,6 @@ export default function Profile() {
           </TouchableOpacity>
         </View>
 
-        {/* Danger Zone */}
         <View style={styles.warningCard}>
           <View style={styles.cardHeader}>
             <Text style={[styles.warningTitle, { marginLeft: 5 }]}>Danger Zone</Text>
@@ -279,7 +273,10 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA"
+  },
   topHeader: {
     backgroundColor: "#ff3b3b",
     paddingHorizontal: 20,
@@ -292,11 +289,27 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     elevation: 5,
   },
-  topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  titleSection: { marginBottom: 20 },
-  title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
-  avatarSection: { alignItems: "center", marginBottom: 25 },
+  topHeaderText: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold"
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40
+  },
+  titleSection: {
+    marginBottom: 20
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#1a1a1a"
+  },
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 25
+  },
   avatarCircle: {
     width: 100,
     height: 100,
@@ -328,10 +341,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-  avatarName: { fontSize: 18, fontWeight: "bold", color: "#333" },
-  avatarSubText: { color: "#666", fontSize: 13 },
-
-  /* Card & Inputs */
+  avatarName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333"
+  },
+  avatarSubText: {
+    color: "#666",
+    fontSize: 13
+  },
   card: {
     backgroundColor: "#fff",
     padding: 20,
@@ -341,10 +359,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E9ECEF",
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  inputGroup: { marginBottom: 15 },
-  label: { fontSize: 14, fontWeight: "600", color: "#555", marginBottom: 8 },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333"
+  },
+  inputGroup: {
+    marginBottom: 15
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#555",
+    marginBottom: 8
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -372,8 +405,16 @@ const styles = StyleSheet.create({
     borderColor: "#FFE3E3",
     marginBottom: 20,
   },
-  warningTitle: { color: "red", fontWeight: "bold", fontSize: 16 },
-  warningText: { color: "#666", fontSize: 13, marginBottom: 15 },
+  warningTitle: {
+    color: "red",
+    fontWeight: "bold",
+    fontSize: 16
+  },
+  warningText: {
+    color: "#666",
+    fontSize: 13,
+    marginBottom: 15
+  },
   logoutButton: {
     backgroundColor: "#ff9500",
     flexDirection: "row",
@@ -391,6 +432,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  versionText: { textAlign: "center", color: "#ADB5BD", fontSize: 12, marginTop: 10 },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16
+  },
+  versionText: {
+    textAlign: "center",
+    color: "#ADB5BD",
+    fontSize: 12,
+    marginTop: 10
+  },
 });

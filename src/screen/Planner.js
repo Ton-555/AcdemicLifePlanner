@@ -28,34 +28,37 @@ export default function Planner() {
             date: "10 มี.ค. 2026",
             time: "11:00 - 18:00 น.",
             location: "สนามกีฬาหลักและลานอเนกประสงค์กลาง",
-            image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/637807135_1231482309166679_4376201818258179145_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=pA5JcaCdhP8Q7kNvwEcnPR3&_nc_oc=AdkU2731yA-yO_oua-sPLFU5jGgeWNgKgOuKdcHIgvAkW7IHobascF_18z15ENQtLKE&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=kVL4f4vCTsn1UbtfGDSWQA&oh=00_AfuVsaad4mr_m2XAKO0x7sFs1UyHVGKkmNN-r0MRB9jLhg&oe=699FA8CA",
+            image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/637807135_1231482309166679_4376201818258179145_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=pA5JcaCdhP8Q7kNvwEcnPR3&_nc_oc=AdkU2731yA-yO_oua-sPLFU5jGgeWNgKgOuDdcHIgvAkW7IHobascF_18z15ENQtLKE&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=kVL4f4vCTsn1UbtfGDSWQA&oh=00_AfuVsaad4mr_m2XAKO0x7sFs1UyHVGKkmNN-r0MRB9jLhg&oe=699FA8CA",
         },
     ];
 
+    // State สำหรับจัดการแผนการเรียน (Study Plans)
     const [studyPlans, setStudyPlans] = useState([]);
+    // State สำหรับควบคุมการแสดง Modal เพิ่มแผนการเรียน
     const [taskModal, setTaskModal] = useState(false);
     const [taskTitle, setTaskTitle] = useState("");
     const [taskDate, setTaskDate] = useState("");
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
 
+    // สำหรับรีเซ็ตฟอร์มเพิ่มแผนการเรียน
     const resetTaskForm = () => { setTaskTitle(""); setTaskDate(""); };
     const formatDate = (date) => {
         return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-
     const parseThaiDate = (dateStr) => {
         if (dateStr === "ไม่ระบุวัน") {
-            return new Date(9999, 0, 0);
+            return new Date(9999, 0, 0); 
         }
         const parts = dateStr.split('/');
         if (parts.length === 3) {
-            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            return new Date(parseInt(parts[2]) - 543, parseInt(parts[1]) - 1, parseInt(parts[0]));
         }
         return new Date(9999, 0, 0);
     };
 
+    // การเลือกวันที่จาก DatePicker
     const onDateChange = (event, selected) => {
         setShowDatePicker(false);
         if (selected) {
@@ -64,6 +67,7 @@ export default function Planner() {
         }
     };
 
+    // เพิ่มแผนการเรียนใหม่
     const addTask = () => {
         if (!taskTitle.trim()) {
             Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อแผนการเรียน");
@@ -80,8 +84,17 @@ export default function Planner() {
         resetTaskForm();
     };
 
+    // สลับสถานะ 'เสร็จสิ้น' ของแผนการเรียน
     const toggleDone = (id) => {
         setStudyPlans(studyPlans.map(item => item.id === id ? { ...item, done: !item.done } : item));
+    };
+
+    // ลบแผนการเรียน
+    const handleDeleteTask = (id) => {
+        Alert.alert("ลบ Task", "ยืนยันการลบ?", [
+            { text: "ยกเลิก" },
+            { text: "ลบ", onPress: () => setStudyPlans(prev => prev.filter(t => t.id !== id)), style: "destructive" }
+        ]);
     };
 
     return (
@@ -96,6 +109,7 @@ export default function Planner() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                 <View style={{ padding: 20 }}>
                     <Text style={styles.title}>Activity & Planner</Text>
+                    {/* ปุ่มสลับแท็บกิจกรรมเสริม/เช็คลิสต์การเรียน */}
                     <View style={styles.tabContainer}>
                         <TouchableOpacity
                             style={[styles.tabButton, activeTab === "activity" && styles.activeTab]}
@@ -115,6 +129,7 @@ export default function Planner() {
                         <Text style={styles.sectionTitle}>
                             {activeTab === "activity" ? "กิจกรรมแนะนำสำหรับคุณ" : "แผนการเรียนของฉัน"}
                         </Text>
+                        {/* ปุ่มเพิ่มแผนการเรียนเฉพาะในแท็บเช็คลิสต์การเรียน*/}
                         {activeTab === "study" && (
                             <TouchableOpacity style={styles.addButton} onPress={() => setTaskModal(true)}>
                                 <Ionicons name="add" size={20} color="#fff" />
@@ -190,7 +205,7 @@ export default function Planner() {
                 </View>
             </ScrollView>
 
-            {/* Modal for adding Task */}
+            {/* หน้าต่าง (Modal) สำหรับปุ่ม "เพิ่ม Task" */}
             <Modal visible={taskModal} transparent animationType="fade">
                 <View style={styles.overlay}>
                     <View style={styles.modalBox}>
@@ -231,7 +246,10 @@ export default function Planner() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#FDFDFD" },
+    container: {
+        flex: 1,
+        backgroundColor: "#FDFDFD"
+    },
     topHeader: {
         backgroundColor: "#ff3b3b",
         paddingHorizontal: 20,
@@ -244,8 +262,17 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 30,
         elevation: 5,
     },
-    topHeaderText: { color: "#fff", fontWeight: "bold", fontSize: 24 },
-    title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a", marginBottom: 20 },
+    topHeaderText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 24
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: "800",
+        color: "#1a1a1a",
+        marginBottom: 20
+    },
     tabContainer: {
         flexDirection: "row",
         backgroundColor: "#F1F3F5",
@@ -253,11 +280,30 @@ const styles = StyleSheet.create({
         padding: 6,
         marginBottom: 25,
     },
-    tabButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 16 },
-    activeTab: { backgroundColor: "#fff", elevation: 3, shadowOpacity: 0.1 },
-    activeTabText: { color: "#ff3b3b", fontWeight: "bold" },
-    inactiveTabText: { color: "#adb5bd" },
-    listHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: "center",
+        borderRadius: 16
+    },
+    activeTab: {
+        backgroundColor: "#fff",
+        elevation: 3,
+        shadowOpacity: 0.1
+    },
+    activeTabText: {
+        color: "#ff3b3b",
+        fontWeight: "bold"
+    },
+    inactiveTabText: {
+        color: "#adb5bd"
+    },
+    listHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20
+    },
     sectionTitle: { fontSize: 18, fontWeight: "700", color: "#444" },
     addButton: {
         flexDirection: "row",
@@ -267,8 +313,11 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: "center",
     },
-    addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-
+    addText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 13
+    },
     largeCard: {
         backgroundColor: "#fff",
         borderRadius: 20,
@@ -284,13 +333,42 @@ const styles = StyleSheet.create({
         width: '100%',
         aspectRatio: 16 / 9,
     },
-    cardContent: { padding: 20 },
-    largeCardTitle: { fontSize: 20, fontWeight: "bold", color: "#222", marginBottom: 8 },
-    locationContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-    locationText: { fontSize: 14, color: "#666", marginLeft: 4, flex: 1 },
-    cardFooter: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F1F1F1", paddingTop: 15 },
-    footerItem: { flexDirection: "row", alignItems: "center", marginRight: 20 },
-    footerText: { fontSize: 13, color: "#444", fontWeight: "500" },
+    cardContent: {
+        padding: 20
+    },
+    largeCardTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: "#222",
+        marginBottom: 8
+    },
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15
+    },
+    locationText: {
+        fontSize: 14,
+        color: "#666",
+        marginLeft: 4,
+        flex: 1
+    },
+    cardFooter: {
+        flexDirection: "row",
+        borderTopWidth: 1,
+        borderTopColor: "#F1F1F1",
+        paddingTop: 15
+    },
+    footerItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginRight: 20
+    },
+    footerText: {
+        fontSize: 13,
+        color: "#444",
+        fontWeight: "500"
+    },
 
     taskCard: {
         flexDirection: "row",
@@ -302,15 +380,57 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#F1F1F1",
     },
-    taskTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
-    taskDate: { fontSize: 12, color: "#999", marginTop: 2 },
-
-    emptyContainer: { alignItems: "center", marginTop: 50 },
-    emptyText: { color: "#999", marginTop: 15, textAlign: "center" },
-    overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
-    modalBox: { backgroundColor: "#fff", borderRadius: 25, padding: 25 },
-    modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-    modalInput: { backgroundColor: "#F8F9FA", borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: "#EEE" },
-    row: { flexDirection: "row" },
-    btn: { flex: 1, padding: 15, borderRadius: 12, alignItems: "center" },
+    taskTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#333"
+    },
+    taskDate: {
+        fontSize: 12,
+        color: "#999",
+        marginTop: 2
+    },
+    emptyContainer: {
+        alignItems: "center",
+        marginTop: 50
+    },
+    emptyText: {
+        color: "#999",
+        marginTop: 15,
+        textAlign: "center"
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        justifyContent: "center",
+        padding: 20
+    },
+    modalBox: {
+        backgroundColor: "#fff",
+        borderRadius: 25,
+        padding: 25
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 20,
+        textAlign: "center"
+    },
+    modalInput: {
+        backgroundColor: "#F8F9FA",
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: "#EEE"
+    },
+    row: {
+        flexDirection: "row"
+    },
+    btn: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 12,
+        alignItems: "center"
+    },
 });
