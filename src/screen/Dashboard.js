@@ -172,27 +172,26 @@ const Dashboard = ({ navigation }) => {
 
     const handleAdd = () => {
         if (!quickTitle.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อวิชา / กิจกรรม"); return; }
-        if (!quickStartTimeStr || !quickEndTimeStr) { Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุด"); return; }
-        const ss = quickStartTimeObj.getHours() * 60 + quickStartTimeObj.getMinutes();
-        let es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
-        if (es === 0) es = 24 * 60;
-        if (es <= ss) { Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ"); return; }
-
+        
         if (quickType === "RealActivity") {
-            const pad = (n) => String(n).padStart(2, '0');
-            const dateStr = quickDateStr ? `${quickDateObj.getFullYear()}-${pad(quickDateObj.getMonth() + 1)}-${pad(quickDateObj.getDate())}` : "";
             const item = {
                 id: Date.now().toString(),
                 title: quickTitle.trim(),
-                date: dateStr,
-                startTime: `${pad(quickStartTimeObj.getHours())}:${pad(quickStartTimeObj.getMinutes())}`,
-                endTime: `${pad(quickEndTimeObj.getHours())}:${pad(quickEndTimeObj.getMinutes())}`,
+                date: "",
+                startTime: "",
+                endTime: "",
                 location: "",
             };
             activityStore.addActivity(item);
             resetQuickAdd();
             return;
         }
+
+        if (!quickStartTimeStr || !quickEndTimeStr) { Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุด"); return; }
+        const ss = quickStartTimeObj.getHours() * 60 + quickStartTimeObj.getMinutes();
+        let es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
+        if (es === 0) es = 24 * 60;
+        if (es <= ss) { Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ"); return; }
 
         const selDay = DAY_MAP[quickDay - 1];
         const newItem = {
@@ -480,11 +479,11 @@ const Dashboard = ({ navigation }) => {
 
                         {quickType === 'Exam' ? (
                             <View style={[styles.inputWrapper, { padding: 0 }]}>
-                                <Ionicons name="book-outline" size={18} color="#666" style={[styles.inputIcon, { marginLeft: 12 }]} />
+                                <Ionicons name="book-outline" size={18} color="#666" style={styles.inputIcon} />
                                 <Picker
                                     selectedValue={quickTitle}
                                     onValueChange={(itemValue) => setQuickTitle(itemValue)}
-                                    style={{ height: 50, flex: 1, color: '#333', marginLeft: -10 }}
+                                    style={{ height: 50, flex: 1, color: '#333' }}
                                 >
                                     {uniqueClassTitles.map((title, idx) => (
                                         <Picker.Item key={idx} label={title} value={title} />
@@ -503,15 +502,7 @@ const Dashboard = ({ navigation }) => {
                             </View>
                         )}
 
-                        {quickType === "RealActivity" ? (
-                            <>
-                                <Text style={styles.quickLabel}>เลือกวันที่:</Text>
-                                <TouchableOpacity style={[styles.inputWrapper, { marginBottom: 15 }]} onPress={() => setShowQuickDatePicker(true)}>
-                                    <Ionicons name="calendar-outline" size={18} color="#666" style={styles.inputIcon} />
-                                    <Text style={{ color: quickDateStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickDateStr || "วันที่จัดกิจกรรม"}</Text>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
+                        {quickType === "RealActivity" ? null : (
                             <>
                                 <Text style={styles.quickLabel}>เลือกวัน:</Text>
                                 <View style={styles.quickDayRow}>
@@ -525,20 +516,20 @@ const Dashboard = ({ navigation }) => {
                                         </TouchableOpacity>
                                     ))}
                                 </View>
+
+                                <Text style={styles.quickLabel}>เลือกเวลา:</Text>
+                                <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+                                    <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]} onPress={() => setShowQuickStartPicker(true)}>
+                                        <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                        <Text style={{ color: quickStartTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickStartTimeStr || "เวลาเริ่ม"}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]} onPress={() => setShowQuickEndPicker(true)}>
+                                        <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                        <Text style={{ color: quickEndTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickEndTimeStr || "เวลาสิ้นสุด"}</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </>
                         )}
-
-                        <Text style={styles.quickLabel}>เลือกเวลา:</Text>
-                        <View style={{ flexDirection: 'row', marginBottom: 15 }}>
-                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]} onPress={() => setShowQuickStartPicker(true)}>
-                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: quickStartTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickStartTimeStr || "เวลาเริ่ม"}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]} onPress={() => setShowQuickEndPicker(true)}>
-                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: quickEndTimeStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickEndTimeStr || "เวลาสิ้นสุด"}</Text>
-                            </TouchableOpacity>
-                        </View>
 
                         <View style={styles.modalButtonRow}>
                             <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee" }]} onPress={resetQuickAdd}>

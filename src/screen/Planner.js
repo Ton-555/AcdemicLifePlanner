@@ -9,38 +9,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import activityStore from '../data/ActivityStore';
-
-
-const FEATURED_ACTIVITIES = [
-    {
-        id: "f1",
-        title: "Job Fair 2026",
-        date: "2026-02-20",
-        displayDate: "20 ก.พ. 2026",
-        time: "09:00 - 16:00 น.",
-        location: "ห้องคอนเวนชั่น มก.กำแพงแสน",
-        image: "https://kps.ku.ac.th/v8/images/Satang/2569/Feb/613324.jpg",
-    },
-    {
-        id: "f2",
-        title: "Lib Learn Life",
-        date: "2026-02-03",
-        displayDate: "3 ก.พ. 2026",
-        time: "10:00 - 20:00 น.",
-        location: "สวนด้านหน้าสำนักงานบริหารจัดการการเรียนรู้",
-        image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/619260339_1478488657612149_5296629279182397039_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=13d280&_nc_ohc=qR7mPQGZClMQ7kNvwEL92rU&_nc_oc=AdnJBDo4a61UNuFLUHbLTwC2SYj3GWHzPiPTEod5IoW-Zef6-6qsCOVDkxcL1yWBi3Q&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=tHQ8DPCH0jEyNAkT2etBTw&oh=00_Afuq72HN_dDhdD8d6KI9D5ZXmuEhk_GuVFDv58VvA8N_xA&oe=699FA1F4",
-    },
-    {
-        id: "f3",
-        title: "Music In The Garden",
-        date: "2026-03-10",
-        displayDate: "10 มี.ค. 2026",
-        time: "11:00 - 18:00 น.",
-        location: "สนามกีฬาหลักและลานอเนกประสงค์กลาง",
-        image: "https://scontent.fkdt2-1.fna.fbcdn.net/v/t39.30808-6/637807135_1231482309166679_4376201818258179145_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=pA5JcaCdhP8Q7kNvwEcnPR3&_nc_oc=AdkU2731yA-yO_oua-sPLFU5jGgeWNgKgOuDdcHIgvAkW7IHobascF_18z15ENQtLKE&_nc_zt=23&_nc_ht=scontent.fkdt2-1.fna&_nc_gid=kVL4f4vCTsn1UbtfGDSWQA&oh=00_AfuVsaad4mr_m2XAKO0x7sFs1UyHVGKkmNN-r0MRB9jLhg&oe=699FA8CA",
-    },
-];
-
 // ── ค่าเริ่มต้น form ──
 const EMPTY_FORM = {
     title: '', dateStr: '', dateObj: new Date(),
@@ -98,7 +66,7 @@ export default function Planner() {
             });
         };
         listenPlans();
-        
+
         return () => {
             if (unsubscribe) unsubscribe();
         };
@@ -211,14 +179,8 @@ export default function Planner() {
         ]);
     };
 
-    // ── Featured activities ──
     const now = new Date();
     const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const featuredWithStatus = FEATURED_ACTIVITIES.map(act => {
-        const [y, m, d] = act.date.split('-').map(Number);
-        const actMs = new Date(y, m - 1, d).getTime();
-        return { ...act, _featured: true, isPast: actMs < todayMs, isToday: actMs === todayMs };
-    });
 
     // ── User activities ──
     const userWithStatus = [...activities].map(act => {
@@ -229,7 +191,7 @@ export default function Planner() {
     });
 
     // ── Merge & sort all activities by date ──
-    const allActivities = [...featuredWithStatus, ...userWithStatus].sort((a, b) => {
+    const allActivities = [...userWithStatus].sort((a, b) => {
         const da = a.date || '';
         const db_ = b.date || '';
         if (!da && !db_) return 0;
