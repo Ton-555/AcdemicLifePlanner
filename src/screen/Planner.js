@@ -18,6 +18,9 @@ const EMPTY_FORM = {
     location: '', description: '', imageUrl: '',
 };
 
+const COLUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvyf9nd9s/image/upload';
+const UPLOAD_PRESET = 'y9zcvfzw';
+
 export default function Planner() {
     const [activeTab, setActiveTab] = useState("activity");
 
@@ -140,7 +143,36 @@ export default function Planner() {
         setActFormVisible(true);
     };
 
-    const handleSaveAct = () => {
+    // อัปโหลดรูปภาพไปยัง Cloudinary
+    const uploadToCloudinary = async (uri) => {
+        const data = new FormData();
+        data.append('file', {
+            uri: uri,
+            type: 'image/jpeg',
+            name: 'activity_image.jpg'
+        });
+        data.append('upload_preset', UPLOAD_PRESET);
+
+        try {
+            const response = await fetch(COLUDINARY_URL, {
+                method: 'POST',
+                body: data
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                console.error("Cloudinary Error:", result.error.message);
+                Alert.alert("อัปโหลดรูปไม่สำเร็จ", result.error.message);
+                return null;
+            }
+            return result.secure_url;
+        } catch (error) {
+            console.error("upload รูปไม่สำเร็จ (Network Error):", error);
+            return null;
+        }
+    };
+
+    const handleSaveAct = async () => {
         if (!form.title.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อกิจกรรม"); return; }
         
         // --- Validation: check if end time is before start time ---
@@ -230,6 +262,18 @@ export default function Planner() {
             return;
         }
 
+        let finalImageUrl = form.imageUrl.trim();
+        // ถ้าผู้ใช้เลือกรูปใหม่ ไม่ใช่ URL เดิมจากเซิร์ฟเวอร์ให้ทำการอัปโหลดใหม่
+        if (finalImageUrl && !finalImageUrl.startsWith('http')) {
+            Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลและอัปโหลดรูปภาพกิจกรรม กรุณารอสักครู่");
+            const uploadedUrl = await uploadToCloudinary(finalImageUrl);
+            if (uploadedUrl) {
+                finalImageUrl = uploadedUrl;
+            } else {
+                return; // Stop if upload fails
+            }
+        }
+
         const item = {
             id: editingAct ? editingAct.id : Date.now().toString(),
             title: form.title.trim(),
@@ -238,7 +282,7 @@ export default function Planner() {
             endTime,
             location: form.location.trim(),
             description: form.description.trim(),
-            image: form.imageUrl.trim(),
+            image: finalImageUrl,
         };
         if (editingAct) activityStore.updateActivity(editingAct.id, item);
         else activityStore.addActivity(item);
