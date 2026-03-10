@@ -76,9 +76,12 @@ const Dashboard = ({ navigation }) => {
 
     // ── Quick Add Timetable modal ──
     const [modalVisible, setModalVisible] = useState(false);
-    const [quickType, setQuickType] = useState("Activity");
+    const [quickType, setQuickType] = useState("RealActivity");
     const [quickTitle, setQuickTitle] = useState("");
     const [quickDay, setQuickDay] = useState(1);
+    const [quickDateObj, setQuickDateObj] = useState(new Date());
+    const [showQuickDatePicker, setShowQuickDatePicker] = useState(false);
+    const [quickDateStr, setQuickDateStr] = useState("");
     const [quickStartTimeObj, setQuickStartTimeObj] = useState(new Date());
     const [showQuickStartPicker, setShowQuickStartPicker] = useState(false);
     const [quickStartTimeStr, setQuickStartTimeStr] = useState("");
@@ -152,7 +155,8 @@ const Dashboard = ({ navigation }) => {
 
     // ── Timetable Quick Add helpers ──
     const resetQuickAdd = () => {
-        setQuickTitle(""); setQuickType("Activity"); setQuickDay(1);
+        setQuickTitle(""); setQuickType("RealActivity"); setQuickDay(1);
+        setQuickDateObj(new Date()); setQuickDateStr("");
         setQuickStartTimeObj(new Date()); setQuickStartTimeStr("");
         setQuickEndTimeObj(new Date()); setQuickEndTimeStr("");
         setModalVisible(false);
@@ -176,6 +180,23 @@ const Dashboard = ({ navigation }) => {
         let es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
         if (es === 0) es = 24 * 60;
         if (es <= ss) { Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ"); return; }
+
+        if (quickType === "RealActivity") {
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = quickDateStr ? `${quickDateObj.getFullYear()}-${pad(quickDateObj.getMonth() + 1)}-${pad(quickDateObj.getDate())}` : "";
+            const item = {
+                id: Date.now().toString(),
+                title: quickTitle.trim(),
+                date: dateStr,
+                startTime: `${pad(quickStartTimeObj.getHours())}:${pad(quickStartTimeObj.getMinutes())}`,
+                endTime: `${pad(quickEndTimeObj.getHours())}:${pad(quickEndTimeObj.getMinutes())}`,
+                location: "",
+            };
+            activityStore.addActivity(item);
+            resetQuickAdd();
+            return;
+        }
+
         const selDay = DAY_MAP[quickDay - 1];
         const newItem = {
             title: quickTitle,
@@ -184,12 +205,12 @@ const Dashboard = ({ navigation }) => {
             location: 'ไม่ระบุสถานที่',
             extra_descriptions: [],
         };
-        const list = quickType === "Activity" ? classes : exams;
+        const list = quickType === "Class" ? classes : exams;
         if (checkOverlap(newItem, list)) {
             Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับรายการที่มีอยู่แล้ว");
             return;
         }
-        quickType === "Activity" ? timetableStore.addClass(newItem) : timetableStore.addExam(newItem);
+        quickType === "Class" ? timetableStore.addClass(newItem) : timetableStore.addExam(newItem);
         resetQuickAdd();
     };
 
@@ -274,13 +295,8 @@ const Dashboard = ({ navigation }) => {
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>Dashboard</Text>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {/* ปุ่มเพิ่มกิจกรรมด่วน (สีส้ม) */}
-                        <TouchableOpacity style={[styles.addButton, { backgroundColor: '#FF9500' }]} onPress={openAddActivity}>
-                            <Ionicons name="star-outline" size={16} color="#fff" />
-                            <Text style={styles.addText}> กิจกรรม</Text>
-                        </TouchableOpacity>
-                        {/* ปุ่มเพิ่มด่วน (ตารางเรียน/สอบ เดิม) */}
-                        <TouchableOpacity style={styles.addButton} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
+                        {/* ปุ่มเพิ่มด่วน (ตารางเรียน/สอบ/กิจกรรม) */}
+                        <TouchableOpacity style={[styles.addButton, { backgroundColor: '#ff3b3b' }]} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
                             <Ionicons name="add" size={20} color="#fff" />
                             <Text style={styles.addText}> เพิ่มด่วน</Text>
                         </TouchableOpacity>
@@ -322,8 +338,8 @@ const Dashboard = ({ navigation }) => {
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Ionicons name="star-outline" size={24} color="#FF9500" />
-                        <Text style={[styles.statNum, { color: '#FF9500' }]}>{filteredActivities.length}</Text>
+                        <Ionicons name="star-outline" size={24} color="#ff3b3b" />
+                        <Text style={[styles.statNum, { color: '#1a1a1a' }]}>{filteredActivities.length}</Text>
                         <Text style={styles.statLabel}>กิจกรรม</Text>
                     </View>
                 </View>
@@ -411,8 +427,8 @@ const Dashboard = ({ navigation }) => {
                 {/* ─── การ์ดกิจกรรมของฉัน ─── */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
-                        <Ionicons name="star-outline" size={18} color="#FF9500" />
-                        <Text style={[styles.cardTitle, { color: '#FF9500' }]}> กิจกรรมของฉัน – {periodLabel}</Text>
+                        <Ionicons name="star-outline" size={18} color="#ff3b3b" />
+                        <Text style={[styles.cardTitle, { color: '#1a1a1a' }]}> กิจกรรม – {periodLabel}</Text>
                     </View>
 
                     {filteredActivities.length === 0 ? (
@@ -422,14 +438,12 @@ const Dashboard = ({ navigation }) => {
                         </View>
                     ) : (
                         filteredActivities.map((act, i) => (
-                            <TouchableOpacity
+                            <View
                                 key={act.id}
                                 style={[styles.itemRow, i < filteredActivities.length - 1 && styles.itemRowBorder]}
-                                onPress={() => openEditActivity(act)}
-                                activeOpacity={0.8}
                             >
                                 <View style={[styles.dayBadge, { backgroundColor: '#FFF7EE' }]}>
-                                    <Text style={[styles.dayBadgeText, { color: '#FF9500', fontSize: 11 }]}>
+                                    <Text style={[styles.dayBadgeText, { color: '#ff3b3b', fontSize: 11 }]}>
                                         {act.date ? act.date.slice(8) : '?'}
                                     </Text>
                                 </View>
@@ -440,8 +454,7 @@ const Dashboard = ({ navigation }) => {
                                         {act.location ? `  ·  ${act.location}` : ''}
                                     </Text>
                                 </View>
-                                <Ionicons name="create-outline" size={16} color="#FF9500" />
-                            </TouchableOpacity>
+                            </View>
                         ))
                     )}
                 </View>
@@ -455,7 +468,7 @@ const Dashboard = ({ navigation }) => {
                         <Text style={styles.modalTitle}>เพิ่มด่วน</Text>
 
                         <View style={styles.tabContainer}>
-                            {[['Activity', 'ตารางเรียน'], ['Task', 'ตารางสอบ']].map(([k, label]) => (
+                            {[['RealActivity', 'กิจกรรม'], ['Class', 'ตารางเรียน'], ['Exam', 'ตารางสอบ']].map(([k, label]) => (
                                 <TouchableOpacity
                                     key={k}
                                     style={[styles.tabButton, quickType === k && styles.activeTab]}
@@ -467,22 +480,34 @@ const Dashboard = ({ navigation }) => {
                         </View>
 
                         <View style={styles.inputWrapper}>
-                            <Ionicons name="create-outline" size={18} color="#666" style={styles.inputIcon} />
-                            <TextInput placeholder="ชื่อวิชา / กิจกรรม" style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
+                            <Ionicons name={quickType === 'RealActivity' ? "star-outline" : "create-outline"} size={18} color="#666" style={styles.inputIcon} />
+                            <TextInput placeholder={quickType === 'RealActivity' ? "ชื่อกิจกรรม" : "ชื่อวิชา / กิจกรรม"} style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
                         </View>
 
-                        <Text style={styles.quickLabel}>เลือกวัน:</Text>
-                        <View style={styles.quickDayRow}>
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    style={[styles.quickDayButton, quickDay === i + 1 && styles.quickDayButtonActive]}
-                                    onPress={() => setQuickDay(i + 1)}
-                                >
-                                    <Text style={[styles.quickDayText, quickDay === i + 1 && styles.quickDayTextActive]}>{d}</Text>
+                        {quickType === "RealActivity" ? (
+                            <>
+                                <Text style={styles.quickLabel}>เลือกวันที่:</Text>
+                                <TouchableOpacity style={[styles.inputWrapper, { marginBottom: 15 }]} onPress={() => setShowQuickDatePicker(true)}>
+                                    <Ionicons name="calendar-outline" size={18} color="#666" style={styles.inputIcon} />
+                                    <Text style={{ color: quickDateStr ? "#000" : "#999", flex: 1, padding: 12 }}>{quickDateStr || "วันที่จัดกิจกรรม"}</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.quickLabel}>เลือกวัน:</Text>
+                                <View style={styles.quickDayRow}>
+                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
+                                        <TouchableOpacity
+                                            key={i}
+                                            style={[styles.quickDayButton, quickDay === i + 1 && styles.quickDayButtonActive]}
+                                            onPress={() => setQuickDay(i + 1)}
+                                        >
+                                            <Text style={[styles.quickDayText, quickDay === i + 1 && styles.quickDayTextActive]}>{d}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
                         <Text style={styles.quickLabel}>เลือกเวลา:</Text>
                         <View style={{ flexDirection: 'row', marginBottom: 15 }}>
@@ -500,7 +525,7 @@ const Dashboard = ({ navigation }) => {
                             <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee" }]} onPress={resetQuickAdd}>
                                 <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={handleAdd}>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b ", flex: 2, marginLeft: 10 }]} onPress={handleAdd}>
                                 <Text style={{ color: "#fff", fontWeight: "bold" }}>เพิ่ม</Text>
                             </TouchableOpacity>
                         </View>
@@ -515,7 +540,7 @@ const Dashboard = ({ navigation }) => {
                         <Text style={styles.modalTitle}>{editingActivity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมด่วน'}</Text>
 
                         <View style={styles.inputWrapper}>
-                            <Ionicons name="star-outline" size={18} color="#FF9500" style={styles.inputIcon} />
+                            <Ionicons name="star-outline" size={18} color="#ff3b3b" style={styles.inputIcon} />
                             <TextInput placeholder="ชื่อกิจกรรม *" style={styles.input} value={actTitle} onChangeText={setActTitle} />
                         </View>
 
@@ -552,7 +577,7 @@ const Dashboard = ({ navigation }) => {
                             <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee", marginLeft: editingActivity ? 8 : 0 }]} onPress={() => setActModalVisible(false)}>
                                 <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#FF9500", flex: 2, marginLeft: 10 }]} onPress={handleSaveActivity}>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={handleSaveActivity}>
                                 <Text style={{ color: "#fff", fontWeight: "bold" }}>{editingActivity ? 'บันทึก' : 'เพิ่ม'}</Text>
                             </TouchableOpacity>
                         </View>
@@ -565,6 +590,9 @@ const Dashboard = ({ navigation }) => {
             )}
             {showQuickEndPicker && (
                 <DateTimePicker value={quickEndTimeObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowQuickEndPicker(false); if (t) { setQuickEndTimeObj(t); setQuickEndTimeStr(fmtDisplay(t)); } }} />
+            )}
+            {showQuickDatePicker && (
+                <DateTimePicker value={quickDateObj} mode="date" display="default" onChange={(e, d) => { setShowQuickDatePicker(false); if (d) { setQuickDateObj(d); setQuickDateStr(fmtDateDisplay(d)); } }} />
             )}
             {showActDatePicker && (
                 <DateTimePicker value={actDateObj} mode="date" display="default" onChange={(e, d) => { setShowActDatePicker(false); if (d) { setActDateObj(d); setActDateStr(fmtDateDisplay(d)); } }} />
@@ -708,7 +736,7 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#ff3b3b"
+        color: " #ff3b3b"
     },
 
     itemRow: {

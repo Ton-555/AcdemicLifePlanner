@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
 import timetableStore from '../data/TimetableStore';
+import activityStore from '../data/ActivityStore';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -161,20 +162,16 @@ export default function Profile() {
           onPress: async () => {
             try {
               const user = auth.currentUser;
-              // ล้าง local state
-              setName("");
-              setFaculty("");
-              setYear("");
-              setImage(null);
-              // ล้าง Firestore: profile
               if (user) {
-                await setDoc(doc(db, 'users', user.uid), {
-                  name: '', faculty: '', year: 0, profilePicture: null, updatedAt: new Date()
-                }, { merge: true });
+                // ล้าง Firestore: เช็คลิสต์การเรียน (study plans)
+                await setDoc(doc(db, 'userStudyPlans', user.uid), { plans: [] });
               }
-              // ล้าง Firestore: timetable (TC-03)
+
+              // ล้าง Firestore: timetable & activity
               await timetableStore.clearAllData();
-              Alert.alert("ลบสำเร็จ", "ข้อมูลทั้งหมดถูกล้างเรียบร้อยแล้ว");
+              await activityStore.clearAllData();
+              
+              Alert.alert("ลบสำเร็จ", "ล้างข้อมูลเช็คลิสต์ กิจกรรม และตารางเรียนเรียบร้อยแล้ว");
             } catch (error) {
               console.error("Clear error:", error);
               Alert.alert("ผิดพลาด", "ไม่สามารถลบข้อมูลได้");

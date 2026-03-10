@@ -5,11 +5,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import * as ImagePicker from 'expo-image-picker';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import activityStore from '../data/ActivityStore';
 
-// ── กิจกรรมแนะนำ (hardcode) ──
+
 const FEATURED_ACTIVITIES = [
     {
         id: "f1",
@@ -80,16 +81,27 @@ export default function Planner() {
 
     // โหลด study plans
     useEffect(() => {
-        const fetchPlans = async () => {
-            try {
-                const user = auth.currentUser;
-                if (!user) { setLoadingPlans(false); return; }
-                const snap = await getDoc(doc(db, 'userStudyPlans', user.uid));
-                if (snap.exists()) setStudyPlans(snap.data().plans || []);
-            } catch (e) { console.error(e); }
-            finally { setLoadingPlans(false); }
+        let unsubscribe;
+        const listenPlans = () => {
+            const user = auth.currentUser;
+            if (!user) { setLoadingPlans(false); return; }
+            unsubscribe = onSnapshot(doc(db, 'userStudyPlans', user.uid), (snap) => {
+                if (snap.exists()) {
+                    setStudyPlans(snap.data().plans || []);
+                } else {
+                    setStudyPlans([]);
+                }
+                setLoadingPlans(false);
+            }, (error) => {
+                console.error("Error fetching study plans:", error);
+                setLoadingPlans(false);
+            });
         };
-        fetchPlans();
+        listenPlans();
+        
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
 
     const savePlans = async (plans) => {
@@ -179,6 +191,19 @@ export default function Planner() {
         setActFormVisible(false);
     };
 
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setForm(f => ({ ...f, imageUrl: result.assets[0].uri }));
+        }
+    };
+
     const handleDeleteAct = (id) => {
         Alert.alert("ลบกิจกรรม", "ยืนยันการลบ?", [
             { text: "ยกเลิก" },
@@ -245,7 +270,7 @@ export default function Planner() {
                         <>
                             <View style={styles.listHeader}>
                                 <Text style={styles.sectionTitle}>ทั้งหมด {allActivities.length} รายการ</Text>
-                                <TouchableOpacity style={[styles.addButton, { backgroundColor: '#FF9500' }]} onPress={openAdd}>
+                                <TouchableOpacity style={[styles.addButton, { backgroundColor: '#ff3b3b' }]} onPress={openAdd}>
                                     <Ionicons name="add" size={20} color="#fff" />
                                     <Text style={styles.addText}> เพิ่มกิจกรรม</Text>
                                 </TouchableOpacity>
@@ -269,7 +294,7 @@ export default function Planner() {
                                         <Image source={{ uri: act.image }} style={styles.actCardImage} resizeMode="cover" />
                                     ) : (
                                         <View style={styles.actCardImagePlaceholder}>
-                                            <Ionicons name="star" size={32} color="#FF9500" />
+                                            <Ionicons name="star" size={32} color="#ff3b3b" />
                                         </View>
                                     )}
                                     <View style={styles.actCardContent}>
@@ -286,7 +311,7 @@ export default function Planner() {
                                         </View>
                                         {(act.displayDate || act.date) ? (
                                             <View style={styles.actInfoRow}>
-                                                <Ionicons name="calendar-outline" size={13} color="#FF9500" />
+                                                <Ionicons name="calendar-outline" size={13} color="#ff3b3b" />
                                                 <Text style={styles.actInfoText}>
                                                     {' '}{act.displayDate || act.date}
                                                     {(act.time || act.startTime) ? `  ·  ${act.time || act.startTime}${act.endTime ? ' – ' + act.endTime : ''}` : ''}
@@ -368,7 +393,7 @@ export default function Planner() {
                                     <Image source={{ uri: detailAct.image }} style={styles.detailImage} resizeMode="cover" />
                                 ) : (
                                     <View style={styles.detailImagePlaceholder}>
-                                        <Ionicons name="star" size={48} color="#FF9500" />
+                                        <Ionicons name="star" size={48} color="#ff3b3b" />
                                     </View>
                                 )}
 
@@ -385,7 +410,7 @@ export default function Planner() {
                                 {/* วันที่ + เวลา */}
                                 {(detailAct.displayDate || detailAct.date) && (
                                     <View style={styles.detailRow}>
-                                        <Ionicons name="calendar-outline" size={16} color="#FF9500" />
+                                        <Ionicons name="calendar-outline" size={16} color="#ff3b3b" />
                                         <Text style={styles.detailText}>
                                             {' '}{detailAct.displayDate || detailAct.date}
                                             {(detailAct.time || detailAct.startTime)
@@ -420,17 +445,17 @@ export default function Planner() {
                                     {!detailAct._featured && (
                                         <>
                                             <TouchableOpacity
-                                                style={[styles.btn, { backgroundColor: '#333' }]}
+                                                style={[styles.btn, { backgroundColor: '#ff3b3b' }]}
                                                 onPress={() => {
                                                     const act = detailAct;
                                                     setDetailAct(null);
                                                     setTimeout(() => handleDeleteAct(act.id), 300);
                                                 }}
                                             >
-                                                <Ionicons name="trash-outline" size={18} color="#fff" />
+                                                <Text style={{ color: '#fff', fontWeight: 'bold' }}>ลบ</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
-                                                style={[styles.btn, { backgroundColor: '#FF9500', flex: 2 }]}
+                                                style={[styles.btn, { backgroundColor: '#007AFF', flex: 2 }]}
                                                 onPress={() => {
                                                     const act = detailAct;
                                                     setDetailAct(null);
@@ -484,7 +509,7 @@ export default function Planner() {
                             {/* ชื่อกิจกรรม */}
                             <Text style={styles.fieldLabel}>ชื่อกิจกรรม *</Text>
                             <View style={styles.fieldBox}>
-                                <Ionicons name="star-outline" size={18} color="#FF9500" style={styles.fieldIcon} />
+                                <Ionicons name="star-outline" size={18} color="#ff3b3b" style={styles.fieldIcon} />
                                 <TextInput
                                     style={styles.fieldInput}
                                     placeholder="เช่น Job Fair 2026"
@@ -538,29 +563,20 @@ export default function Planner() {
                                 />
                             </View>
 
-                            {/* URL รูปภาพ */}
-                            <Text style={styles.fieldLabel}>URL รูปภาพ (ถ้ามี)</Text>
-                            <View style={styles.fieldBox}>
+                            {/* เลือกรูปภาพ */}
+                            <Text style={styles.fieldLabel}>รูปภาพกิจกรรม (ถ้ามี)</Text>
+                            <TouchableOpacity style={[styles.fieldBox, { paddingVertical: 10 }]} onPress={pickImage}>
                                 <Ionicons name="image-outline" size={18} color="#666" style={styles.fieldIcon} />
-                                <TextInput
-                                    style={styles.fieldInput}
-                                    placeholder="https://..."
-                                    value={form.imageUrl}
-                                    onChangeText={v => setForm(f => ({ ...f, imageUrl: v }))}
-                                    autoCapitalize="none"
-                                />
-                            </View>
+                                <Text style={{ color: form.imageUrl ? "#000" : "#999", flex: 1, paddingVertical: 3 }}>
+                                    {form.imageUrl ? 'เลือกรูปภาพแล้ว (แตะเพื่อเปลี่ยน)' : 'แตะเพื่อเลือกจากเครื่อง'}
+                                </Text>
+                            </TouchableOpacity>
+                            {form.imageUrl ? (
+                                <Image source={{ uri: form.imageUrl }} style={{ width: '100%', height: 180, borderRadius: 12, marginTop: 6, marginBottom: 12, borderWidth: 1, borderColor: '#EEE' }} resizeMode="cover" />
+                            ) : null}
 
                             {/* ปุ่ม */}
                             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                                {editingAct && (
-                                    <TouchableOpacity
-                                        style={[styles.btn, { backgroundColor: '#333', flex: 1 }]}
-                                        onPress={() => handleDeleteAct(editingAct.id)}
-                                    >
-                                        <Ionicons name="trash-outline" size={18} color="#fff" />
-                                    </TouchableOpacity>
-                                )}
                                 <TouchableOpacity
                                     style={[styles.btn, { backgroundColor: '#eee', flex: 1 }]}
                                     onPress={() => setActFormVisible(false)}
@@ -568,7 +584,7 @@ export default function Planner() {
                                     <Text style={{ color: '#666', fontWeight: 'bold' }}>ยกเลิก</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.btn, { backgroundColor: '#FF9500', flex: 2 }]}
+                                    style={[styles.btn, { backgroundColor: '#ff3b3b', flex: 2 }]}
                                     onPress={handleSaveAct}
                                 >
                                     <Text style={{ color: '#fff', fontWeight: 'bold' }}>{editingAct ? 'บันทึก' : 'เพิ่มกิจกรรม'}</Text>
@@ -649,7 +665,7 @@ const styles = StyleSheet.create({
     statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
     statusBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
     badgePast: { backgroundColor: '#aaa' },
-    badgeToday: { backgroundColor: '#FF9500' },
+    badgeToday: { backgroundColor: '#ff3b3b' },
     badgeFuture: { backgroundColor: '#34C759' },
 
     // Task cards
@@ -690,4 +706,11 @@ const styles = StyleSheet.create({
 
     row: { flexDirection: "row" },
     btn: { flex: 1, padding: 15, borderRadius: 12, alignItems: "center" },
+
+    detailImage: { width: '100%', height: 200, borderRadius: 15 },
+    detailImagePlaceholder: { width: '100%', height: 200, backgroundColor: '#FFF7EE', borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+    detailTitle: { fontSize: 24, fontWeight: '800', color: '#1a1a1a' },
+    detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+    detailText: { fontSize: 14, color: '#555' },
+    detailDesc: { fontSize: 14, color: '#666', marginTop: 16, lineHeight: 22 },
 });
