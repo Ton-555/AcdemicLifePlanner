@@ -8,7 +8,6 @@ import { auth } from '../firebaseConfig';
 import timetableStore from '../data/TimetableStore';
 import activityStore from '../data/ActivityStore';
 
-// ─── ฟังก์ชันช่วยเหลือเรื่องเวลาและวันที่ ───
 const genTimeBlock = (day, hour, minute, date = null) =>
     ({ day, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, date });
 
@@ -69,7 +68,6 @@ const FILTERS = [
 const thaiDayShort = { MON: 'จ', TUE: 'อ', WED: 'พ', THU: 'พฤ', FRI: 'ศ', SAT: 'ส', SUN: 'อา' };
 const fmtTime = (t) => t || '-';
 
-// ─── หน้าจอ Dashboard ───
 const Dashboard = ({ navigation }) => {
     const [classes, setClasses] = useState(timetableStore.getClasses());
     const [exams, setExams] = useState(timetableStore.getExams());
@@ -77,7 +75,6 @@ const Dashboard = ({ navigation }) => {
     const [nowMs, setNowMs] = useState(Date.now());
     const [period, setPeriod] = useState('today');
 
-    // ── Quick Add Timetable modal ──
     const [modalVisible, setModalVisible] = useState(false);
     const [quickType, setQuickType] = useState("RealActivity");
     const [quickTitle, setQuickTitle] = useState("");
@@ -92,9 +89,8 @@ const Dashboard = ({ navigation }) => {
     const [showQuickEndPicker, setShowQuickEndPicker] = useState(false);
     const [quickEndTimeStr, setQuickEndTimeStr] = useState("");
 
-    // ── Quick Add Activity modal ──
     const [actModalVisible, setActModalVisible] = useState(false);
-    const [editingActivity, setEditingActivity] = useState(null); // null = add mode, object = edit mode
+    const [editingActivity, setEditingActivity] = useState(null);
     const [actTitle, setActTitle] = useState("");
     const [actDateStr, setActDateStr] = useState("");
     const [actDateObj, setActDateObj] = useState(new Date());
@@ -134,12 +130,10 @@ const Dashboard = ({ navigation }) => {
         return { filteredClasses: fc, filteredExams: fe };
     }, [classes, exams, period, nowMs]);
 
-    // สร้างรายชื่อวิชาที่ไม่ซ้ำกันสำหรับใช้เป็นตัวเลือก
     const uniqueClassTitles = useMemo(() => {
         return [...new Set((classes || []).map(c => c.title))];
     }, [classes]);
 
-    // กรอง activities ตาม period
     const filteredActivities = useMemo(() => {
         const { from, to } = getRangeMs(period);
         return (activities || []).filter(act => {
@@ -148,11 +142,7 @@ const Dashboard = ({ navigation }) => {
             if (!y || !m || !d) return false;
             const t = new Date(y, m - 1, d).getTime();
             return t >= from && t <= to;
-        }).sort((a, b) => {
-            const ta = new Date(a.date).getTime();
-            const tb = new Date(b.date).getTime();
-            return ta - tb;
-        });
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [activities, period]);
 
     const fmtDisplay = (d) =>
@@ -161,7 +151,6 @@ const Dashboard = ({ navigation }) => {
     const fmtDateDisplay = (d) =>
         d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // ── Timetable Quick Add helpers ──
     const resetQuickAdd = () => {
         setQuickTitle(""); setQuickType("RealActivity"); setQuickDay(1);
         setQuickDateObj(new Date()); setQuickDateStr("");
@@ -222,7 +211,6 @@ const Dashboard = ({ navigation }) => {
         resetQuickAdd();
     };
 
-    // ── Activity Add/Edit helpers ──
     const openAddActivity = () => {
         setEditingActivity(null);
         setActTitle(""); setActDateStr(""); setActDateObj(new Date());
@@ -302,16 +290,12 @@ const Dashboard = ({ navigation }) => {
 
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>Dashboard</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {/* ปุ่มเพิ่มด่วน (ตารางเรียน/สอบ/กิจกรรม) */}
-                        <TouchableOpacity style={[styles.addButton, { backgroundColor: '#ff3b3b' }]} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
-                            <Ionicons name="add" size={20} color="#fff" />
-                            <Text style={styles.addText}> เพิ่มด่วน</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity style={styles.addButton} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
+                        <Ionicons name="add" size={20} color="#fff" />
+                        <Text style={styles.addText}> เพิ่มด่วน</Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* ตัวกรองช่วงเวลา */}
                 <View style={styles.filterRow}>
                     {FILTERS.map(f => {
                         const active = period === f.key;
@@ -331,7 +315,6 @@ const Dashboard = ({ navigation }) => {
                     })}
                 </View>
 
-                {/* การ์ดสถิติ */}
                 <View style={styles.statsCard}>
                     <View style={styles.statItem}>
                         <Ionicons name="book-outline" size={24} color="#ff3b3b" />
@@ -347,7 +330,7 @@ const Dashboard = ({ navigation }) => {
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
                         <Ionicons name="star-outline" size={24} color="#ff3b3b" />
-                        <Text style={[styles.statNum, { color: '#1a1a1a' }]}>{filteredActivities.length}</Text>
+                        <Text style={styles.statNum}>{filteredActivities.length}</Text>
                         <Text style={styles.statLabel}>กิจกรรม</Text>
                     </View>
                 </View>
@@ -358,7 +341,6 @@ const Dashboard = ({ navigation }) => {
                         <Ionicons name="book-outline" size={18} color="#ff3b3b" />
                         <Text style={styles.cardTitle}> คลาสเรียน – {periodLabel}</Text>
                     </View>
-
                     {filteredClasses.length === 0 ? (
                         <View style={styles.emptyRow}>
                             <Ionicons name="calendar-outline" size={36} color="#ddd" />
@@ -396,7 +378,6 @@ const Dashboard = ({ navigation }) => {
                         <Ionicons name="document-text-outline" size={18} color="#ff3b3b" />
                         <Text style={styles.cardTitle}> การสอบ – {periodLabel}</Text>
                     </View>
-
                     {filteredExams.length === 0 ? (
                         <View style={styles.emptyRow}>
                             <Ionicons name="clipboard-outline" size={36} color="#ddd" />
@@ -432,13 +413,12 @@ const Dashboard = ({ navigation }) => {
                     )}
                 </View>
 
-                {/* ─── การ์ดกิจกรรมของฉัน ─── */}
+                {/* การ์ดกิจกรรม */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="star-outline" size={18} color="#ff3b3b" />
-                        <Text style={[styles.cardTitle, { color: '#1a1a1a' }]}> กิจกรรม – {periodLabel}</Text>
+                        <Text style={styles.cardTitle}> กิจกรรม – {periodLabel}</Text>
                     </View>
-
                     {filteredActivities.length === 0 ? (
                         <View style={styles.emptyRow}>
                             <Ionicons name="star-outline" size={36} color="#ddd" />
@@ -469,7 +449,7 @@ const Dashboard = ({ navigation }) => {
 
             </ScrollView>
 
-            {/* ── Modal เพิ่มด่วน (ตารางเรียน/สอบ) ── */}
+            {/* Modal เพิ่มด่วน */}
             <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
@@ -488,7 +468,6 @@ const Dashboard = ({ navigation }) => {
                                             }
                                             setQuickTitle(uniqueClassTitles[0] || "");
                                         } else if (quickType === 'Exam') {
-                                            // Reset title if switching away from Exam
                                             setQuickTitle("");
                                         }
                                         setQuickType(k);
@@ -515,7 +494,12 @@ const Dashboard = ({ navigation }) => {
                         ) : (
                             <View style={styles.inputWrapper}>
                                 <Ionicons name={quickType === 'RealActivity' ? "star-outline" : "create-outline"} size={18} color="#666" style={styles.inputIcon} />
-                                <TextInput placeholder={quickType === 'RealActivity' ? "ชื่อกิจกรรม" : "ชื่อวิชา / กิจกรรม"} style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
+                                <TextInput
+                                    placeholder={quickType === 'RealActivity' ? "ชื่อกิจกรรม" : "ชื่อวิชา / กิจกรรม"}
+                                    style={styles.input}
+                                    value={quickTitle}
+                                    onChangeText={setQuickTitle}
+                                />
                             </View>
                         )}
 
@@ -560,60 +544,9 @@ const Dashboard = ({ navigation }) => {
                             <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee" }]} onPress={resetQuickAdd}>
                                 <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b ", flex: 2, marginLeft: 10 }]} onPress={handleAdd}>
+                            {/* ✅ แก้ bug: ลบ space ออกจาก "#ff3b3b " */}
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={handleAdd}>
                                 <Text style={{ color: "#fff", fontWeight: "bold" }}>เพิ่ม</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* ── Modal เพิ่ม/แก้ไขกิจกรรม ── */}
-            <Modal visible={actModalVisible} animationType="slide" transparent onRequestClose={() => setActModalVisible(false)}>
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{editingActivity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมด่วน'}</Text>
-
-                        <View style={styles.inputWrapper}>
-                            <Ionicons name="star-outline" size={18} color="#ff3b3b" style={styles.inputIcon} />
-                            <TextInput placeholder="ชื่อกิจกรรม *" style={styles.input} value={actTitle} onChangeText={setActTitle} />
-                        </View>
-
-                        {/* วันที่ */}
-                        <TouchableOpacity style={styles.inputWrapper} onPress={() => setShowActDatePicker(true)}>
-                            <Ionicons name="calendar-outline" size={18} color="#666" style={styles.inputIcon} />
-                            <Text style={{ color: actDateStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actDateStr || "วันที่จัดกิจกรรม"}</Text>
-                        </TouchableOpacity>
-
-                        {/* เวลา */}
-                        <View style={{ flexDirection: 'row', marginBottom: 0 }}>
-                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]} onPress={() => setShowActStartPicker(true)}>
-                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: actStartStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actStartStr || "เวลาเริ่ม"}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]} onPress={() => setShowActEndPicker(true)}>
-                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
-                                <Text style={{ color: actEndStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actEndStr || "เวลาสิ้นสุด"}</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* สถานที่ */}
-                        <View style={styles.inputWrapper}>
-                            <Ionicons name="location-outline" size={18} color="#666" style={styles.inputIcon} />
-                            <TextInput placeholder="สถานที่ (ถ้ามี)" style={styles.input} value={actLocation} onChangeText={setActLocation} />
-                        </View>
-
-                        <View style={styles.modalButtonRow}>
-                            {editingActivity && (
-                                <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#333" }]} onPress={() => handleDeleteActivity(editingActivity.id)}>
-                                    <Ionicons name="trash-outline" size={16} color="#fff" />
-                                </TouchableOpacity>
-                            )}
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee", marginLeft: editingActivity ? 8 : 0 }]} onPress={() => setActModalVisible(false)}>
-                                <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={handleSaveActivity}>
-                                <Text style={{ color: "#fff", fontWeight: "bold" }}>{editingActivity ? 'บันทึก' : 'เพิ่ม'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -629,294 +562,64 @@ const Dashboard = ({ navigation }) => {
             {showQuickDatePicker && (
                 <DateTimePicker value={quickDateObj} mode="date" display="default" onChange={(e, d) => { setShowQuickDatePicker(false); if (d) { setQuickDateObj(d); setQuickDateStr(fmtDateDisplay(d)); } }} />
             )}
-            {showActDatePicker && (
-                <DateTimePicker value={actDateObj} mode="date" display="default" onChange={(e, d) => { setShowActDatePicker(false); if (d) { setActDateObj(d); setActDateStr(fmtDateDisplay(d)); } }} />
-            )}
-            {showActStartPicker && (
-                <DateTimePicker value={actStartObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowActStartPicker(false); if (t) { setActStartObj(t); setActStartStr(fmtDisplay(t)); } }} />
-            )}
-            {showActEndPicker && (
-                <DateTimePicker value={actEndObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowActEndPicker(false); if (t) { setActEndObj(t); setActEndStr(fmtDisplay(t)); } }} />
-            )}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#F8F9FA"
-    },
+    container: { flex: 1, backgroundColor: "#F8F9FA" },
     topHeader: {
         backgroundColor: "#ff3b3b",
-        paddingHorizontal: 20,
-        paddingTop: 15,
-        paddingBottom: 15,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        elevation: 5,
+        paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5,
     },
-    topHeaderText: {
-        color: "#fff",
-        fontSize: 24,
-        fontWeight: "bold"
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 40
-    },
-
-    titleRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 18
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: "800",
-        color: "#1a1a1a"
-    },
-    addButton: {
-        flexDirection: "row",
-        backgroundColor: "#ff3b3b",
-        paddingVertical: 8,
-        paddingHorizontal: 13,
-        borderRadius: 12,
-        alignItems: "center"
-    },
-    addText: {
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: 13
-    },
-
-    filterRow: {
-        flexDirection: "row",
-        marginBottom: 20,
-        gap: 8
-    },
-    pill: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-        backgroundColor: "#fff",
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
-        elevation: 1,
-    },
-    pillActive: {
-        backgroundColor: "#ff3b3b",
-        borderColor: "#ff3b3b"
-    },
-    pillText: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: "#888"
-    },
-    pillTextActive: {
-        color: "#fff"
-    },
-    statsCard: {
-        backgroundColor: "#fff",
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-around",
-        elevation: 2,
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
-    },
-    statItem: {
-        alignItems: "center",
-        flex: 1
-    },
-    statNum: {
-        fontSize: 26,
-        fontWeight: "800",
-        color: "#1a1a1a",
-        marginTop: 4
-    },
-    statLabel: {
-        fontSize: 12,
-        color: "#888",
-        marginTop: 2
-    },
-    statDivider: {
-        width: 1,
-        height: 50,
-        backgroundColor: "#E9ECEF"
-    },
-    card: {
-        backgroundColor: "#fff",
-        padding: 20,
-        borderRadius: 20,
-        elevation: 2,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
-    },
-    cardHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 14
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: " #ff3b3b"
-    },
-
-    itemRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        gap: 12
-    },
-    itemRowBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: "#F1F3F5"
-    },
-    dayBadge: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: "#F1F3F5",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    dayBadgeText: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: "#555"
-    },
-    itemTitle: {
-        fontSize: 15,
-        fontWeight: "700",
-        color: "#222",
-        marginBottom: 2
-    },
-    itemSub: {
-        fontSize: 12,
-        color: "#888"
-    },
-
-    emptyRow: {
-        alignItems: "center",
-        paddingVertical: 24,
-        gap: 8
-    },
-    emptyText: {
-        color: "#aaa",
-        fontSize: 14
-    },
-    modalContainer: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0,0,0,0.4)"
-    },
-    modalContent: {
-        backgroundColor: "#fff",
-        padding: 25,
-        borderTopLeftRadius: 25,
-        borderTopRightRadius: 25
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        marginBottom: 20,
-        color: "#1a1a1a"
-    },
-    tabContainer: {
-        flexDirection: "row",
-        backgroundColor: "#F1F3F5",
-        borderRadius: 20,
-        padding: 6,
-        marginBottom: 20
-    },
-    tabButton: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: "center",
-        borderRadius: 16
-    },
-    activeTab: {
-        backgroundColor: "#fff",
-        elevation: 3
-    },
-    activeTabText: {
-        color: "#ff3b3b",
-        fontWeight: "bold"
-    },
-    inactiveTabText: {
-        color: "#adb5bd"
-    },
-    inputWrapper: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#F1F3F5",
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#E9ECEF",
-        marginBottom: 15
-    },
-    inputIcon: {
-        paddingLeft: 12
-    },
-    input: {
-        flex: 1,
-        padding: 12,
-        fontSize: 16,
-        color: "#333"
-    },
-
-    quickLabel: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#555",
-        marginBottom: 10
-    },
-    quickDayRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 15
-    },
-    quickDayButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 6,
-        borderRadius: 10,
-        backgroundColor: "#F1F3F5",
-        alignItems: "center",
-        minWidth: 40
-    },
-    quickDayButtonActive: {
-        backgroundColor: "#ff3b3b"
-    },
-    quickDayText: {
-        fontSize: 11,
-        color: "#555",
-        fontWeight: "600"
-    },
-    quickDayTextActive: {
-        color: "#fff",
-        fontWeight: "bold"
-    },
-    modalButtonRow: {
-        flexDirection: "row"
-    },
-    modalButton: {
-        flex: 1,
-        paddingVertical: 15,
-        borderRadius: 15,
-        alignItems: "center"
-    },
+    topHeaderText: { color: "#fff", fontSize: 24, fontWeight: "bold" },
+    scrollContent: { padding: 20, paddingBottom: 40 },
+    titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 },
+    title: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
+    addButton: { flexDirection: "row", backgroundColor: "#ff3b3b", paddingVertical: 8, paddingHorizontal: 13, borderRadius: 12, alignItems: "center" },
+    addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
+    filterRow: { flexDirection: "row", marginBottom: 20, gap: 8 },
+    pill: { flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E9ECEF", elevation: 1 },
+    pillActive: { backgroundColor: "#ff3b3b", borderColor: "#ff3b3b" },
+    pillText: { fontSize: 13, fontWeight: "600", color: "#888" },
+    pillTextActive: { color: "#fff" },
+    statsCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, marginBottom: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-around", elevation: 2, borderWidth: 1, borderColor: "#E9ECEF" },
+    statItem: { alignItems: "center", flex: 1 },
+    statNum: { fontSize: 26, fontWeight: "800", color: "#1a1a1a", marginTop: 4 },
+    statLabel: { fontSize: 12, color: "#888", marginTop: 2 },
+    statDivider: { width: 1, height: 50, backgroundColor: "#E9ECEF" },
+    card: { backgroundColor: "#fff", padding: 20, borderRadius: 20, elevation: 2, marginBottom: 20, borderWidth: 1, borderColor: "#E9ECEF" },
+    cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
+    cardTitle: { fontSize: 16, fontWeight: "bold", color: "#ff3b3b" },
+    itemRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 12 },
+    itemRowBorder: { borderBottomWidth: 1, borderBottomColor: "#F1F3F5" },
+    dayBadge: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#F1F3F5", justifyContent: "center", alignItems: "center" },
+    dayBadgeText: { fontSize: 13, fontWeight: "700", color: "#555" },
+    itemTitle: { fontSize: 15, fontWeight: "700", color: "#222", marginBottom: 2 },
+    itemSub: { fontSize: 12, color: "#888" },
+    emptyRow: { alignItems: "center", paddingVertical: 24, gap: 8 },
+    emptyText: { color: "#aaa", fontSize: 14 },
+    modalContainer: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+    modalContent: { backgroundColor: "#fff", padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
+    modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, color: "#1a1a1a" },
+    tabContainer: { flexDirection: "row", backgroundColor: "#F1F3F5", borderRadius: 20, padding: 6, marginBottom: 20 },
+    tabButton: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 16 },
+    activeTab: { backgroundColor: "#fff", elevation: 3 },
+    activeTabText: { color: "#ff3b3b", fontWeight: "bold" },
+    inactiveTabText: { color: "#adb5bd" },
+    inputWrapper: { flexDirection: "row", alignItems: "center", backgroundColor: "#F1F3F5", borderRadius: 12, borderWidth: 1, borderColor: "#E9ECEF", marginBottom: 15 },
+    inputIcon: { paddingLeft: 12 },
+    input: { flex: 1, padding: 12, fontSize: 16, color: "#333" },
+    quickLabel: { fontSize: 14, fontWeight: "600", color: "#555", marginBottom: 10 },
+    quickDayRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
+    quickDayButton: { paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, backgroundColor: "#F1F3F5", alignItems: "center", minWidth: 40 },
+    quickDayButtonActive: { backgroundColor: "#ff3b3b" },
+    quickDayText: { fontSize: 11, color: "#555", fontWeight: "600" },
+    quickDayTextActive: { color: "#fff", fontWeight: "bold" },
+    modalButtonRow: { flexDirection: "row" },
+    modalButton: { flex: 1, paddingVertical: 15, borderRadius: 15, alignItems: "center" },
 });
 
 export default Dashboard;
