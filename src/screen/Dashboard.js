@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput,
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import timetableStore from '../data/TimetableStore';
+import activityStore from '../data/ActivityStore';
 
 // ─── ฟังก์ชันช่วยเหลือเรื่องเวลาและวันที่ ───
 const genTimeBlock = (day, hour, minute, date = null) =>
@@ -12,7 +13,6 @@ const DAY_MAP = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 const WEEKDAY_NUM = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
 
-// แปลงข้อมูลกิจกรรมให้กลายเป็น Object Date จริงๆ ตามวันที่อ้างอิง
 const itemToDate = (item, refDate) => {
     if (!item?.startTime) return null;
     const { day, time, date } = item.startTime;
@@ -38,7 +38,6 @@ const itemToDate = (item, refDate) => {
     return null;
 };
 
-// คำนวณขอบเขตเวลา (เริ่ม - จบ) ตามช่วงที่เลือก (วันนี้, สัปดาห์หน้า, เดือนหน้า)
 const getRangeMs = (period) => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
@@ -65,20 +64,17 @@ const FILTERS = [
 ];
 
 const thaiDayShort = { MON: 'จ', TUE: 'อ', WED: 'พ', THU: 'พฤ', FRI: 'ศ', SAT: 'ส', SUN: 'อา' };
-
 const fmtTime = (t) => t || '-';
 
 // ─── หน้าจอ Dashboard ───
 const Dashboard = ({ navigation }) => {
-    // ข้อมูลจาก Store และเวลาปัจจุบัน
     const [classes, setClasses] = useState(timetableStore.getClasses());
     const [exams, setExams] = useState(timetableStore.getExams());
+    const [activities, setActivities] = useState(activityStore.getActivities());
     const [nowMs, setNowMs] = useState(Date.now());
-
-    // สถานะตัวกรอง (วันนี้ / สัปดาห์หน้า / เดือนหน้า)
     const [period, setPeriod] = useState('today');
 
-    // สถานะของ Pop-up "เพิ่มด่วน"
+    // ── Quick Add Timetable modal ──
     const [modalVisible, setModalVisible] = useState(false);
     const [quickType, setQuickType] = useState("Activity");
     const [quickTitle, setQuickTitle] = useState("");
@@ -90,29 +86,40 @@ const Dashboard = ({ navigation }) => {
     const [showQuickEndPicker, setShowQuickEndPicker] = useState(false);
     const [quickEndTimeStr, setQuickEndTimeStr] = useState("");
 
-    // สมัครรับการอัปเดตข้อมูลจาก Store หากมีการเปลี่ยนแปลงตาราง
+    // ── Quick Add Activity modal ──
+    const [actModalVisible, setActModalVisible] = useState(false);
+    const [editingActivity, setEditingActivity] = useState(null); // null = add mode, object = edit mode
+    const [actTitle, setActTitle] = useState("");
+    const [actDateStr, setActDateStr] = useState("");
+    const [actDateObj, setActDateObj] = useState(new Date());
+    const [showActDatePicker, setShowActDatePicker] = useState(false);
+    const [actStartStr, setActStartStr] = useState("");
+    const [actStartObj, setActStartObj] = useState(new Date());
+    const [showActStartPicker, setShowActStartPicker] = useState(false);
+    const [actEndStr, setActEndStr] = useState("");
+    const [actEndObj, setActEndObj] = useState(new Date());
+    const [showActEndPicker, setShowActEndPicker] = useState(false);
+    const [actLocation, setActLocation] = useState("");
+
     useEffect(() => {
-        const unsub = timetableStore.subscribe(({ classes: nc, exams: ne }) => {
+        const unsubTT = timetableStore.subscribe(({ classes: nc, exams: ne }) => {
             setClasses(nc);
             setExams(ne);
         });
-        // อัปเดตเวลาปัจจุบันทุกๆ 1 นาที
+        const unsubAct = activityStore.subscribe((acts) => setActivities(acts));
         const tick = setInterval(() => setNowMs(Date.now()), 60_000);
-        return () => { unsub(); clearInterval(tick); };
+        return () => { unsubTT(); unsubAct(); clearInterval(tick); };
     }, []);
 
-    // ตัวกรองกิจกรรมตามช่วงเวลาที่เลือก
     const { filteredClasses, filteredExams } = useMemo(() => {
         const { from, to } = getRangeMs(period);
         const now = new Date(nowMs);
 
-        // กรองวิชาเรียนให้อยู่ในช่วงเวลาที่เลือก
         const fc = (classes || []).filter(item => {
             const d = itemToDate(item, now);
             return d && d.getTime() >= from && d.getTime() <= to;
         }).sort((a, b) => (itemToDate(a, now)?.getTime() || 0) - (itemToDate(b, now)?.getTime() || 0));
 
-        // กรองการสอบให้อยู่ในช่วงเวลาที่เลือก
         const fe = (exams || []).filter(item => {
             const d = itemToDate(item, now);
             return d && d.getTime() >= from && d.getTime() <= to;
@@ -121,10 +128,29 @@ const Dashboard = ({ navigation }) => {
         return { filteredClasses: fc, filteredExams: fe };
     }, [classes, exams, period, nowMs]);
 
+    // กรอง activities ตาม period
+    const filteredActivities = useMemo(() => {
+        const { from, to } = getRangeMs(period);
+        return (activities || []).filter(act => {
+            if (!act.date) return false;
+            const [y, m, d] = act.date.split('-').map(Number);
+            if (!y || !m || !d) return false;
+            const t = new Date(y, m - 1, d).getTime();
+            return t >= from && t <= to;
+        }).sort((a, b) => {
+            const ta = new Date(a.date).getTime();
+            const tb = new Date(b.date).getTime();
+            return ta - tb;
+        });
+    }, [activities, period]);
+
     const fmtDisplay = (d) =>
         d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
 
-    // ล้างค่าฟอร์มการ "เพิ่มด่วน"
+    const fmtDateDisplay = (d) =>
+        d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // ── Timetable Quick Add helpers ──
     const resetQuickAdd = () => {
         setQuickTitle(""); setQuickType("Activity"); setQuickDay(1);
         setQuickStartTimeObj(new Date()); setQuickStartTimeStr("");
@@ -132,7 +158,6 @@ const Dashboard = ({ navigation }) => {
         setModalVisible(false);
     };
 
-    // ฟังก์ชันเช็คว่าเวลาของกิจกรรมใหม่ ที่จะเพิ่ม ชนกับอันเดิมที่มีอยู่ไหม
     const checkOverlap = (newItem, list) =>
         list.some(ex => {
             if (ex.startTime.day !== newItem.startTime.day) return false;
@@ -144,12 +169,12 @@ const Dashboard = ({ navigation }) => {
             return ns < ee && ne > es;
         });
 
-    // ฟังก์ชันเมื่อกดยืนยันการ "เพิ่มด่วน"
     const handleAdd = () => {
         if (!quickTitle.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อวิชา / กิจกรรม"); return; }
         if (!quickStartTimeStr || !quickEndTimeStr) { Alert.alert("แจ้งเตือน", "กรุณาเลือกเวลาเริ่มและเวลาสิ้นสุด"); return; }
         const ss = quickStartTimeObj.getHours() * 60 + quickStartTimeObj.getMinutes();
-        const es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
+        let es = quickEndTimeObj.getHours() * 60 + quickEndTimeObj.getMinutes();
+        if (es === 0) es = 24 * 60;
         if (es <= ss) { Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ"); return; }
         const selDay = DAY_MAP[quickDay - 1];
         const newItem = {
@@ -168,6 +193,72 @@ const Dashboard = ({ navigation }) => {
         resetQuickAdd();
     };
 
+    // ── Activity Add/Edit helpers ──
+    const openAddActivity = () => {
+        setEditingActivity(null);
+        setActTitle(""); setActDateStr(""); setActDateObj(new Date());
+        setActStartStr(""); setActStartObj(new Date());
+        setActEndStr(""); setActEndObj(new Date());
+        setActLocation("");
+        setActModalVisible(true);
+    };
+
+    const openEditActivity = (act) => {
+        setEditingActivity(act);
+        setActTitle(act.title || "");
+        setActLocation(act.location || "");
+        if (act.date) {
+            const [y, m, d] = act.date.split('-').map(Number);
+            const dObj = new Date(y, m - 1, d);
+            setActDateObj(dObj);
+            setActDateStr(fmtDateDisplay(dObj));
+        } else {
+            setActDateObj(new Date()); setActDateStr("");
+        }
+        if (act.startTime) {
+            const [h, min] = act.startTime.split(':').map(Number);
+            const t = new Date(); t.setHours(h, min, 0, 0);
+            setActStartObj(t); setActStartStr(fmtDisplay(t));
+        } else {
+            setActStartObj(new Date()); setActStartStr("");
+        }
+        if (act.endTime) {
+            const [h, min] = act.endTime.split(':').map(Number);
+            const t = new Date(); t.setHours(h, min, 0, 0);
+            setActEndObj(t); setActEndStr(fmtDisplay(t));
+        } else {
+            setActEndObj(new Date()); setActEndStr("");
+        }
+        setActModalVisible(true);
+    };
+
+    const handleSaveActivity = () => {
+        if (!actTitle.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อกิจกรรม"); return; }
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = `${actDateObj.getFullYear()}-${pad(actDateObj.getMonth() + 1)}-${pad(actDateObj.getDate())}`;
+        const item = {
+            id: editingActivity ? editingActivity.id : Date.now().toString(),
+            title: actTitle.trim(),
+            date: actDateStr ? dateStr : "",
+            startTime: actStartStr ? `${pad(actStartObj.getHours())}:${pad(actStartObj.getMinutes())}` : "",
+            endTime: actEndStr ? `${pad(actEndObj.getHours())}:${pad(actEndObj.getMinutes())}` : "",
+            location: actLocation.trim(),
+        };
+        if (editingActivity) {
+            activityStore.updateActivity(editingActivity.id, item);
+        } else {
+            activityStore.addActivity(item);
+        }
+        setActModalVisible(false);
+    };
+
+    const handleDeleteActivity = (id) => {
+        Alert.alert("ลบกิจกรรม", "ยืนยันการลบกิจกรรมนี้?", [
+            { text: "ยกเลิก", style: "cancel" },
+            { text: "ลบ", style: "destructive", onPress: () => { activityStore.deleteActivity(id); setActModalVisible(false); } },
+        ]);
+    };
+
     const periodLabel = FILTERS.find(f => f.key === period)?.label || '';
 
     return (
@@ -182,13 +273,21 @@ const Dashboard = ({ navigation }) => {
 
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>Dashboard</Text>
-                    <TouchableOpacity style={styles.addButton} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
-                        <Ionicons name="add" size={20} color="#fff" />
-                        <Text style={styles.addText}> เพิ่มด่วน</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {/* ปุ่มเพิ่มกิจกรรมด่วน (สีส้ม) */}
+                        <TouchableOpacity style={[styles.addButton, { backgroundColor: '#FF9500' }]} onPress={openAddActivity}>
+                            <Ionicons name="star-outline" size={16} color="#fff" />
+                            <Text style={styles.addText}> กิจกรรม</Text>
+                        </TouchableOpacity>
+                        {/* ปุ่มเพิ่มด่วน (ตารางเรียน/สอบ เดิม) */}
+                        <TouchableOpacity style={styles.addButton} onPress={() => { resetQuickAdd(); setModalVisible(true); }}>
+                            <Ionicons name="add" size={20} color="#fff" />
+                            <Text style={styles.addText}> เพิ่มด่วน</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
-                {/* ตัวกรองช่วงเวลา (แบบแคปซูล) */}
+                {/* ตัวกรองช่วงเวลา */}
                 <View style={styles.filterRow}>
                     {FILTERS.map(f => {
                         const active = period === f.key;
@@ -208,7 +307,7 @@ const Dashboard = ({ navigation }) => {
                     })}
                 </View>
 
-                {/* การ์ดสถิติแสดงจำนวนคลาสเรียนและการสอบ */}
+                {/* การ์ดสถิติ */}
                 <View style={styles.statsCard}>
                     <View style={styles.statItem}>
                         <Ionicons name="book-outline" size={24} color="#ff3b3b" />
@@ -223,13 +322,13 @@ const Dashboard = ({ navigation }) => {
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Ionicons name="layers-outline" size={24} color="#ff3b3b" />
-                        <Text style={styles.statNum}>{filteredClasses.length + filteredExams.length}</Text>
-                        <Text style={styles.statLabel}>รวมทั้งหมด</Text>
+                        <Ionicons name="star-outline" size={24} color="#FF9500" />
+                        <Text style={[styles.statNum, { color: '#FF9500' }]}>{filteredActivities.length}</Text>
+                        <Text style={styles.statLabel}>กิจกรรม</Text>
                     </View>
                 </View>
 
-                {/* การ์ดแสดงรายการคลาสเรียน */}
+                {/* การ์ดคลาสเรียน */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="book-outline" size={18} color="#ff3b3b" />
@@ -267,6 +366,7 @@ const Dashboard = ({ navigation }) => {
                     )}
                 </View>
 
+                {/* การ์ดการสอบ */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="document-text-outline" size={18} color="#ff3b3b" />
@@ -308,9 +408,47 @@ const Dashboard = ({ navigation }) => {
                     )}
                 </View>
 
+                {/* ─── การ์ดกิจกรรมของฉัน ─── */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <Ionicons name="star-outline" size={18} color="#FF9500" />
+                        <Text style={[styles.cardTitle, { color: '#FF9500' }]}> กิจกรรมของฉัน – {periodLabel}</Text>
+                    </View>
+
+                    {filteredActivities.length === 0 ? (
+                        <View style={styles.emptyRow}>
+                            <Ionicons name="star-outline" size={36} color="#ddd" />
+                            <Text style={styles.emptyText}>ไม่มีกิจกรรมใน{periodLabel}</Text>
+                        </View>
+                    ) : (
+                        filteredActivities.map((act, i) => (
+                            <TouchableOpacity
+                                key={act.id}
+                                style={[styles.itemRow, i < filteredActivities.length - 1 && styles.itemRowBorder]}
+                                onPress={() => openEditActivity(act)}
+                                activeOpacity={0.8}
+                            >
+                                <View style={[styles.dayBadge, { backgroundColor: '#FFF7EE' }]}>
+                                    <Text style={[styles.dayBadgeText, { color: '#FF9500', fontSize: 11 }]}>
+                                        {act.date ? act.date.slice(8) : '?'}
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.itemTitle}>{act.title}</Text>
+                                    <Text style={styles.itemSub}>
+                                        {act.startTime ? `${act.startTime}${act.endTime ? ' – ' + act.endTime : ''}` : ''}
+                                        {act.location ? `  ·  ${act.location}` : ''}
+                                    </Text>
+                                </View>
+                                <Ionicons name="create-outline" size={16} color="#FF9500" />
+                            </TouchableOpacity>
+                        ))
+                    )}
+                </View>
+
             </ScrollView>
 
-            {/* หน้าต่าง (Modal) สำหรับปุ่ม "เพิ่มด่วน" */}
+            {/* ── Modal เพิ่มด่วน (ตารางเรียน/สอบ) ── */}
             <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
@@ -370,11 +508,72 @@ const Dashboard = ({ navigation }) => {
                 </View>
             </Modal>
 
+            {/* ── Modal เพิ่ม/แก้ไขกิจกรรม ── */}
+            <Modal visible={actModalVisible} animationType="slide" transparent onRequestClose={() => setActModalVisible(false)}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{editingActivity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมด่วน'}</Text>
+
+                        <View style={styles.inputWrapper}>
+                            <Ionicons name="star-outline" size={18} color="#FF9500" style={styles.inputIcon} />
+                            <TextInput placeholder="ชื่อกิจกรรม *" style={styles.input} value={actTitle} onChangeText={setActTitle} />
+                        </View>
+
+                        {/* วันที่ */}
+                        <TouchableOpacity style={styles.inputWrapper} onPress={() => setShowActDatePicker(true)}>
+                            <Ionicons name="calendar-outline" size={18} color="#666" style={styles.inputIcon} />
+                            <Text style={{ color: actDateStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actDateStr || "วันที่จัดกิจกรรม"}</Text>
+                        </TouchableOpacity>
+
+                        {/* เวลา */}
+                        <View style={{ flexDirection: 'row', marginBottom: 0 }}>
+                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginRight: 6 }]} onPress={() => setShowActStartPicker(true)}>
+                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                <Text style={{ color: actStartStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actStartStr || "เวลาเริ่ม"}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.inputWrapper, { flex: 1, marginLeft: 6 }]} onPress={() => setShowActEndPicker(true)}>
+                                <Ionicons name="time-outline" size={18} color="#666" style={styles.inputIcon} />
+                                <Text style={{ color: actEndStr ? "#000" : "#999", flex: 1, padding: 12 }}>{actEndStr || "เวลาสิ้นสุด"}</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* สถานที่ */}
+                        <View style={styles.inputWrapper}>
+                            <Ionicons name="location-outline" size={18} color="#666" style={styles.inputIcon} />
+                            <TextInput placeholder="สถานที่ (ถ้ามี)" style={styles.input} value={actLocation} onChangeText={setActLocation} />
+                        </View>
+
+                        <View style={styles.modalButtonRow}>
+                            {editingActivity && (
+                                <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#333" }]} onPress={() => handleDeleteActivity(editingActivity.id)}>
+                                    <Ionicons name="trash-outline" size={16} color="#fff" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#eee", marginLeft: editingActivity ? 8 : 0 }]} onPress={() => setActModalVisible(false)}>
+                                <Text style={{ color: "#666", fontWeight: "bold" }}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#FF9500", flex: 2, marginLeft: 10 }]} onPress={handleSaveActivity}>
+                                <Text style={{ color: "#fff", fontWeight: "bold" }}>{editingActivity ? 'บันทึก' : 'เพิ่ม'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             {showQuickStartPicker && (
                 <DateTimePicker value={quickStartTimeObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowQuickStartPicker(false); if (t) { setQuickStartTimeObj(t); setQuickStartTimeStr(fmtDisplay(t)); } }} />
             )}
             {showQuickEndPicker && (
                 <DateTimePicker value={quickEndTimeObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowQuickEndPicker(false); if (t) { setQuickEndTimeObj(t); setQuickEndTimeStr(fmtDisplay(t)); } }} />
+            )}
+            {showActDatePicker && (
+                <DateTimePicker value={actDateObj} mode="date" display="default" onChange={(e, d) => { setShowActDatePicker(false); if (d) { setActDateObj(d); setActDateStr(fmtDateDisplay(d)); } }} />
+            )}
+            {showActStartPicker && (
+                <DateTimePicker value={actStartObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowActStartPicker(false); if (t) { setActStartObj(t); setActStartStr(fmtDisplay(t)); } }} />
+            )}
+            {showActEndPicker && (
+                <DateTimePicker value={actEndObj} mode="time" display="default" is24Hour onChange={(e, t) => { setShowActEndPicker(false); if (t) { setActEndObj(t); setActEndStr(fmtDisplay(t)); } }} />
             )}
         </View>
     );
@@ -422,7 +621,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         backgroundColor: "#ff3b3b",
         paddingVertical: 8,
-        paddingHorizontal: 15,
+        paddingHorizontal: 13,
         borderRadius: 12,
         alignItems: "center"
     },

@@ -12,6 +12,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './src/firebaseConfig';
 import timetableStore from './src/data/TimetableStore';
+import activityStore from './src/data/ActivityStore';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,6 +26,7 @@ export default function App() {
       setUser(currentUser);
       // ส่ง UID ให้ Store เพื่อเตรียมโหลดตารางเรียนของผู้ใช้นี้
       timetableStore.setUserId(currentUser ? currentUser.uid : null);
+      activityStore.setUserId(currentUser ? currentUser.uid : null);
       if (initializing) setInitializing(false);
     });
     return subscriber;

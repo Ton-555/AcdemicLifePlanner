@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
+import timetableStore from '../data/TimetableStore';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -147,21 +148,37 @@ export default function Profile() {
     }
   };
 
-  // ส่วนของการลบข้อมูล (เคลียร์ข้อมูลทั้งหมดในหน้าโปรไฟล์)
+  // TC-03: เคลียร์ข้อมูลทั้งหมดทั้ง Profile และ Timetable ออกจาก Firestore
   const handleClear = () => {
     Alert.alert(
-      "ยืนยันการลบข้อมูล",
-      "ข้อมูลทั้งหมดรวมถึงรูปโปรไฟล์จะถูกล้างค่าเริ่มต้น",
+      "ยืนยันการลบข้อมูลทั้งหมด",
+      "ข้อมูลโปรไฟล์และตารางเรียน/สอบทั้งหมดจะถูกลบออกจากระบบ ไม่สามารถกู้คืนได้",
       [
         { text: "ยกเลิก", style: "cancel" },
         {
           text: "ลบทั้งหมด",
           style: "destructive",
-          onPress: () => {
-            setName("");
-            setFaculty("");
-            setYear("");
-            setImage(null);
+          onPress: async () => {
+            try {
+              const user = auth.currentUser;
+              // ล้าง local state
+              setName("");
+              setFaculty("");
+              setYear("");
+              setImage(null);
+              // ล้าง Firestore: profile
+              if (user) {
+                await setDoc(doc(db, 'users', user.uid), {
+                  name: '', faculty: '', year: 0, profilePicture: null, updatedAt: new Date()
+                }, { merge: true });
+              }
+              // ล้าง Firestore: timetable (TC-03)
+              await timetableStore.clearAllData();
+              Alert.alert("ลบสำเร็จ", "ข้อมูลทั้งหมดถูกล้างเรียบร้อยแล้ว");
+            } catch (error) {
+              console.error("Clear error:", error);
+              Alert.alert("ผิดพลาด", "ไม่สามารถลบข้อมูลได้");
+            }
           },
         },
       ]
