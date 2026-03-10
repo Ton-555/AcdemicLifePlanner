@@ -8,13 +8,13 @@ import {
   Alert,
   ScrollView,
   Image,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebaseConfig';
+import timetableStore from '../data/TimetableStore';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -42,10 +42,8 @@ export default function Profile() {
     try {
       const user = auth.currentUser;
       if (!user) return;
-
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const data = docSnap.data();
         setName(data.name || "");
@@ -60,28 +58,16 @@ export default function Profile() {
 
   const uploadToCloudinary = async (uri) => {
     const data = new FormData();
-    data.append('file', {
-      uri: uri,
-      type: 'image/jpeg',
-      name: 'profile_image.jpg'
-    });
-
+    data.append('file', { uri, type: 'image/jpeg', name: 'profile_image.jpg' });
     data.append('upload_preset', UPLOAD_PRESET);
-
     try {
-      const response = await fetch(COLUDINARY_URL, {
-        method: 'POST',
-        body: data
-      });
-
+      const response = await fetch(COLUDINARY_URL, { method: 'POST', body: data });
       const result = await response.json();
-
       if (!response.ok) {
         console.error("Cloudinary Error:", result.error.message);
         Alert.alert("อัปโหลดรูปไม่สำเร็จ", result.error.message);
         return null;
       }
-
       return result.secure_url;
     } catch (error) {
       console.error("upload รูปไม่สำเร็จ (Network Error):", error);
@@ -91,19 +77,16 @@ export default function Profile() {
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (status !== 'granted') {
       Alert.alert("ขออภัย", "เราจำเป็นต้องขออนุญาตเข้าถึงรูปภาพเพื่อเปลี่ยนโปรไฟล์");
       return;
     }
-
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       setImage(result.assets[0].uri);
     }
@@ -114,35 +97,28 @@ export default function Profile() {
       Alert.alert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
-
     try {
       const user = auth.currentUser;
       if (!user) {
         Alert.alert("ข้อผิดพลาด", "ไม่พบข้อมูลผู้ใช้งาน");
         return;
       }
-
       let imageUrl = image;
-
       if (image && !image.startsWith('http')) {
         Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลและอัปโหลดกรุณารอสักครู่");
         imageUrl = await uploadToCloudinary(image);
-        if (imageUrl) {
-          setImage(imageUrl);
-        }
+        if (imageUrl) setImage(imageUrl);
       } else {
         Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลกรุณารอสักครู่");
       }
-
       const docRef = doc(db, 'users', user.uid);
       await setDoc(docRef, {
-        name: name,
-        faculty: faculty,
+        name,
+        faculty,
         year: parseInt(year) || 0,
         profilePicture: imageUrl,
         updateAt: new Date()
       }, { merge: true });
-
       await fetchUser();
       Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
     } catch (error) {
@@ -151,6 +127,8 @@ export default function Profile() {
     }
   };
 
+  // TC-03 / TC-05: ล้างข้อมูลตารางเรียน ตารางสอบ และ studyPlans ใน Firebase
+  // แต่ไม่แตะข้อมูล profile (ชื่อ/คณะ/รูป) ใน Firebase เลย
   const handleClear = () => {
     Alert.alert(
       "ยืนยันการลบข้อมูล",
@@ -160,11 +138,23 @@ export default function Profile() {
         {
           text: "ลบทั้งหมด",
           style: "destructive",
-          onPress: () => {
-            setName("");
-            setFaculty("");
-            setYear("");
-            setImage(null);
+          onPress: async () => {
+            // ล้าง timetableStore (classes + exams) และ sync ขึ้น Firebase
+            timetableStore.classes = [];
+            timetableStore.exams = [];
+            timetableStore.syncToFirebase();
+            timetableStore.emit();
+
+            // ล้าง studyPlans ใน Firebase
+            try {
+              const user = auth.currentUser;
+              if (user) {
+                const planRef = doc(db, 'studyPlans', user.uid);
+                await setDoc(planRef, { plans: [] }, { merge: false });
+              }
+            } catch (error) {
+              console.error("ลบ studyPlans ไม่สำเร็จ", error);
+            }
           },
         },
       ]
@@ -194,7 +184,6 @@ export default function Profile() {
               ) : (
                 <Ionicons name="person" size={50} color="#ff3b3b" />
               )}
-              {/* ปุ่มไอคอนกล้องเล็กๆ มุมขวาล่างของรูป */}
               <View style={styles.cameraIconBadge}>
                 <Ionicons name="camera" size={16} color="#fff" />
               </View>
@@ -310,11 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     position: 'relative',
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-  },
+  profileImage: { width: '100%', height: '100%', borderRadius: 50 },
   cameraIconBadge: {
     position: 'absolute',
     bottom: 0,
@@ -330,8 +315,6 @@ const styles = StyleSheet.create({
   },
   avatarName: { fontSize: 18, fontWeight: "bold", color: "#333" },
   avatarSubText: { color: "#666", fontSize: 13 },
-
-  /* Card & Inputs */
   card: {
     backgroundColor: "#fff",
     padding: 20,
