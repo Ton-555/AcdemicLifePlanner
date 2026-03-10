@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal, Alert, Image, } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal, Alert, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
 
 export default function Planner() {
     const [activeTab, setActiveTab] = useState("activity");
@@ -39,16 +41,45 @@ export default function Planner() {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
 
+    // TC-06 + TC-03: ใช้ onSnapshot แทน getDoc
+    // เมื่อ Profile ลบ studyPlans ใน Firestore → Planner อัปเดตทันทีอัตโนมัติ
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const docRef = doc(db, 'studyPlans', user.uid);
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setStudyPlans(docSnap.data().plans || []);
+            } else {
+                setStudyPlans([]);
+            }
+        }, (error) => {
+            console.error("onSnapshot studyPlans error:", error);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const syncStudyPlans = async (newPlans) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+            const docRef = doc(db, 'studyPlans', user.uid);
+            await setDoc(docRef, { plans: newPlans }, { merge: false });
+        } catch (error) {
+            console.error("บันทึกแผนการเรียนไม่สำเร็จ", error);
+        }
+    };
+
     const resetTaskForm = () => { setTaskTitle(""); setTaskDate(""); };
+
     const formatDate = (date) => {
         return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-
     const parseThaiDate = (dateStr) => {
-        if (dateStr === "ไม่ระบุวัน") {
-            return new Date(9999, 0, 0);
-        }
+        if (dateStr === "ไม่ระบุวัน") return new Date(9999, 0, 0);
         const parts = dateStr.split('/');
         if (parts.length === 3) {
             return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
@@ -64,7 +95,7 @@ export default function Planner() {
         }
     };
 
-    const addTask = () => {
+    const addTask = async () => {
         if (!taskTitle.trim()) {
             Alert.alert("แจ้งเตือน", "กรุณากรอกชื่อแผนการเรียน");
             return;
@@ -75,13 +106,22 @@ export default function Planner() {
             date: taskDate || "ไม่ระบุวัน",
             done: false,
         };
-        setStudyPlans([newTask, ...studyPlans]);
+        const updated = [newTask, ...studyPlans];
+        await syncStudyPlans(updated);
         setTaskModal(false);
         resetTaskForm();
     };
 
-    const toggleDone = (id) => {
-        setStudyPlans(studyPlans.map(item => item.id === id ? { ...item, done: !item.done } : item));
+    // TC-06: toggleDone persists to Firestore
+    const toggleDone = async (id) => {
+        const updated = studyPlans.map(item => item.id === id ? { ...item, done: !item.done } : item);
+        await syncStudyPlans(updated);
+    };
+
+    // TC-06: deleteTask persists to Firestore
+    const deleteTask = async (id) => {
+        const updated = studyPlans.filter(t => t.id !== id);
+        await syncStudyPlans(updated);
     };
 
     return (
@@ -125,19 +165,13 @@ export default function Planner() {
 
                     {activeTab === "activity" && initialActivities.map((item) => (
                         <View key={item.id} style={styles.largeCard}>
-                            <Image
-                                source={{ uri: item.image }}
-                                style={styles.cardImage}
-                                resizeMode="cover"
-                            />
+                            <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
                             <View style={styles.cardContent}>
                                 <Text style={styles.largeCardTitle}>{item.title}</Text>
-
                                 <View style={styles.locationContainer}>
                                     <Ionicons name="location-outline" size={16} color="#666" />
                                     <Text style={styles.locationText}>{item.location}</Text>
                                 </View>
-
                                 <View style={styles.cardFooter}>
                                     <View style={styles.footerItem}>
                                         <Ionicons name="calendar-outline" size={14} color="#ff3b3b" />
@@ -152,14 +186,9 @@ export default function Planner() {
                         </View>
                     ))}
 
-
                     {activeTab === "study" && studyPlans.slice().sort((a, b) => {
-                        if (a.done !== b.done) {
-                            return a.done - b.done;
-                        }
-                        const dateA = parseThaiDate(a.date);
-                        const dateB = parseThaiDate(b.date);
-                        return dateA - dateB;
+                        if (a.done !== b.done) return a.done - b.done;
+                        return parseThaiDate(a.date) - parseThaiDate(b.date);
                     }).map((item) => (
                         <View key={item.id} style={[styles.taskCard, item.done && { opacity: 0.6 }]}>
                             <TouchableOpacity onPress={() => toggleDone(item.id)}>
@@ -175,7 +204,7 @@ export default function Planner() {
                                 </Text>
                                 <Text style={styles.taskDate}>{item.date}</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setStudyPlans(studyPlans.filter(t => t.id !== item.id))}>
+                            <TouchableOpacity onPress={() => deleteTask(item.id)}>
                                 <Ionicons name="trash-outline" size={18} color="#ccc" />
                             </TouchableOpacity>
                         </View>
@@ -190,7 +219,6 @@ export default function Planner() {
                 </View>
             </ScrollView>
 
-            {/* Modal for adding Task */}
             <Modal visible={taskModal} transparent animationType="fade">
                 <View style={styles.overlay}>
                     <View style={styles.modalBox}>
@@ -207,7 +235,7 @@ export default function Planner() {
                             </Text>
                         </TouchableOpacity>
                         <View style={styles.row}>
-                            <TouchableOpacity style={[styles.btn, { backgroundColor: "#eee" }]} onPress={() => setTaskModal(false)}>
+                            <TouchableOpacity style={[styles.btn, { backgroundColor: "#eee" }]} onPress={() => { setTaskModal(false); resetTaskForm(); }}>
                                 <Text style={{ color: "#666" }}>ปิด</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.btn, { backgroundColor: "#ff3b3b", flex: 2, marginLeft: 10 }]} onPress={addTask}>
@@ -268,7 +296,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     addText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-
     largeCard: {
         backgroundColor: "#fff",
         borderRadius: 20,
@@ -280,10 +307,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
     },
-    cardImage: {
-        width: '100%',
-        aspectRatio: 16 / 9,
-    },
+    cardImage: { width: '100%', aspectRatio: 16 / 9 },
     cardContent: { padding: 20 },
     largeCardTitle: { fontSize: 20, fontWeight: "bold", color: "#222", marginBottom: 8 },
     locationContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
@@ -291,7 +315,6 @@ const styles = StyleSheet.create({
     cardFooter: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F1F1F1", paddingTop: 15 },
     footerItem: { flexDirection: "row", alignItems: "center", marginRight: 20 },
     footerText: { fontSize: 13, color: "#444", fontWeight: "500" },
-
     taskCard: {
         flexDirection: "row",
         alignItems: "center",
@@ -304,7 +327,6 @@ const styles = StyleSheet.create({
     },
     taskTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
     taskDate: { fontSize: 12, color: "#999", marginTop: 2 },
-
     emptyContainer: { alignItems: "center", marginTop: 50 },
     emptyText: { color: "#999", marginTop: 15, textAlign: "center" },
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },

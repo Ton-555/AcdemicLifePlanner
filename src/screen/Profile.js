@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   Alert,
   ScrollView,
   Image,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebaseConfig';
+import timetableStore from '../data/TimetableStore';
 
 export default function Profile() {
   const [name, setName] = useState("");
@@ -19,35 +22,113 @@ export default function Profile() {
   const [year, setYear] = useState("");
   const [image, setImage] = useState(null);
 
+  const COLUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvyf9nd9s/image/upload';
+  const UPLOAD_PRESET = 'y9zcvfzw';
+
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout Error:", error);
+      Alert.alert("ผิดพลาด", "ไม่สามารถออกจากระบบได้");
+    }
+  };
+
+  const fetchUser = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setName(data.name || "");
+        setFaculty(data.faculty || "");
+        setYear(data.year ? data.year.toString() : "");
+        setImage(data.profilePicture || null);
+      }
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดการดึงข้อมูล", error);
+    }
+  };
+
+  const uploadToCloudinary = async (uri) => {
+    const data = new FormData();
+    data.append('file', { uri, type: 'image/jpeg', name: 'profile_image.jpg' });
+    data.append('upload_preset', UPLOAD_PRESET);
+    try {
+      const response = await fetch(COLUDINARY_URL, { method: 'POST', body: data });
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Cloudinary Error:", result.error.message);
+        Alert.alert("อัปโหลดรูปไม่สำเร็จ", result.error.message);
+        return null;
+      }
+      return result.secure_url;
+    } catch (error) {
+      console.error("upload รูปไม่สำเร็จ (Network Error):", error);
+      return null;
+    }
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (status !== 'granted') {
       Alert.alert("ขออภัย", "เราจำเป็นต้องขออนุญาตเข้าถึงรูปภาพเพื่อเปลี่ยนโปรไฟล์");
       return;
     }
-
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       setImage(result.assets[0].uri);
     }
   };
 
-  const handleSave = () => {
-    if (!name.trim()) {
-      Alert.alert("แจ้งเตือน", "กรุณากรอกชื่ออย่างน้อยหนึ่งช่อง");
+  const handleSave = async () => {
+    if (!name.trim() || !faculty.trim() || !year.trim()) {
+      Alert.alert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
-    Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("ข้อผิดพลาด", "ไม่พบข้อมูลผู้ใช้งาน");
+        return;
+      }
+      let imageUrl = image;
+      if (image && !image.startsWith('http')) {
+        Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลและอัปโหลดกรุณารอสักครู่");
+        imageUrl = await uploadToCloudinary(image);
+        if (imageUrl) setImage(imageUrl);
+      } else {
+        Alert.alert("กำลังโหลด...", "กำลังบันทึกข้อมูลกรุณารอสักครู่");
+      }
+      const docRef = doc(db, 'users', user.uid);
+      await setDoc(docRef, {
+        name,
+        faculty,
+        year: parseInt(year) || 0,
+        profilePicture: imageUrl,
+        updateAt: new Date()
+      }, { merge: true });
+      await fetchUser();
+      Alert.alert("บันทึกสำเร็จ", "ข้อมูลนิสิตและรูปภาพถูกอัปเดตเรียบร้อยแล้ว");
+    } catch (error) {
+      console.error("บันทึกไม่สำเร็จ", error);
+      Alert.alert("ผิดพลาด", "ไม่สามารถบันทึกข้อมูลได้");
+    }
   };
 
+  // TC-03 / TC-05: ล้างข้อมูลตารางเรียน ตารางสอบ และ studyPlans ใน Firebase
+  // แต่ไม่แตะข้อมูล profile (ชื่อ/คณะ/รูป) ใน Firebase เลย
   const handleClear = () => {
     Alert.alert(
       "ยืนยันการลบข้อมูล",
@@ -57,11 +138,23 @@ export default function Profile() {
         {
           text: "ลบทั้งหมด",
           style: "destructive",
-          onPress: () => {
-            setName("");
-            setFaculty("");
-            setYear("");
-            setImage(null);
+          onPress: async () => {
+            // ล้าง timetableStore (classes + exams) และ sync ขึ้น Firebase
+            timetableStore.classes = [];
+            timetableStore.exams = [];
+            timetableStore.syncToFirebase();
+            timetableStore.emit();
+
+            // ล้าง studyPlans ใน Firebase
+            try {
+              const user = auth.currentUser;
+              if (user) {
+                const planRef = doc(db, 'studyPlans', user.uid);
+                await setDoc(planRef, { plans: [] }, { merge: false });
+              }
+            } catch (error) {
+              console.error("ลบ studyPlans ไม่สำเร็จ", error);
+            }
           },
         },
       ]
@@ -91,7 +184,6 @@ export default function Profile() {
               ) : (
                 <Ionicons name="person" size={50} color="#ff3b3b" />
               )}
-              {/* ปุ่มไอคอนกล้องเล็กๆ มุมขวาล่างของรูป */}
               <View style={styles.cameraIconBadge}>
                 <Ionicons name="camera" size={16} color="#fff" />
               </View>
@@ -156,10 +248,16 @@ export default function Profile() {
             <Text style={[styles.warningTitle, { marginLeft: 5 }]}>Danger Zone</Text>
           </View>
           <Text style={styles.warningText}>
-            การกดปุ่มด้านล่างจะทำให้ข้อมูลทั้งหมดรวมถึงรูปภาพถูกลบออก
+            ออกจากระบบ หรือลบข้อมูลทั้งหมดรวมถึงรูปภาพถูกลบออก
           </Text>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleClear}>
 
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}> ออกจากระบบ</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteButton} onPress={handleClear}>
+            <Ionicons name="trash-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}> ลบข้อมูลทั้งหมด</Text>
           </TouchableOpacity>
         </View>
@@ -201,11 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     position: 'relative',
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-  },
+  profileImage: { width: '100%', height: '100%', borderRadius: 50 },
   cameraIconBadge: {
     position: 'absolute',
     bottom: 0,
@@ -221,8 +315,6 @@ const styles = StyleSheet.create({
   },
   avatarName: { fontSize: 18, fontWeight: "bold", color: "#333" },
   avatarSubText: { color: "#666", fontSize: 13 },
-
-  /* Card & Inputs */
   card: {
     backgroundColor: "#fff",
     padding: 20,
@@ -265,6 +357,15 @@ const styles = StyleSheet.create({
   },
   warningTitle: { color: "red", fontWeight: "bold", fontSize: 16 },
   warningText: { color: "#666", fontSize: 13, marginBottom: 15 },
+  logoutButton: {
+    backgroundColor: "#ff9500",
+    flexDirection: "row",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
   deleteButton: {
     backgroundColor: "#333",
     flexDirection: "row",
