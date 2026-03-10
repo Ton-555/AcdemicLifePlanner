@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Platform } from 'react-native'
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { Picker } from '@react-native-picker/picker';
 import timetableStore from '../data/TimetableStore'
 
 
@@ -29,6 +30,9 @@ export default function Timetable() {
     });
     return () => unsub();
   }, []);
+
+  // สร้างรายชื่อวิชาที่ไม่ซ้ำกันสำหรับใช้เป็นตัวเลือก
+  const uniqueClassTitles = [...new Set(classes.map(c => c.title))];
 
   // สถานะการแก้ไข/เพิ่มข้อมูล 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -358,7 +362,25 @@ export default function Timetable() {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => { setIsEditMode(false); setEditIndex(null); setNewTitle(''); setNewLocation(''); setNewDay(selDay); setNewExtraDescriptions(''); setSelectedDate(new Date()); setActivityDateStr(""); setStartTimeObj(new Date()); setStartTimeStr(""); setEndTimeObj(new Date()); setEndTimeStr(""); setModalVisible(true); }}>
+      <TouchableOpacity style={styles.fab} onPress={() => { 
+        if (selTable === 2 && uniqueClassTitles.length === 0) {
+          Alert.alert("ไม่สามารถเพิ่มได้", "ยังไม่มีตารางเรียน กรุณาเพิ่มตารางเรียนก่อนจึงจะสามารถเพิ่มตารางสอบได้");
+          return;
+        }
+        setIsEditMode(false); 
+        setEditIndex(null); 
+        setNewTitle(selTable === 2 && uniqueClassTitles.length > 0 ? uniqueClassTitles[0] : ''); 
+        setNewLocation(''); 
+        setNewDay(selDay); 
+        setNewExtraDescriptions(''); 
+        setSelectedDate(new Date()); 
+        setActivityDateStr(""); 
+        setStartTimeObj(new Date()); 
+        setStartTimeStr(""); 
+        setEndTimeObj(new Date()); 
+        setEndTimeStr(""); 
+        setModalVisible(true); 
+      }}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -367,7 +389,21 @@ export default function Timetable() {
           <View style={styles.modalContent}>
             <Text style={styles.modalHeader}>{isEditMode ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</Text>
 
-            <TextInput style={styles.input} placeholder="ชื่อวิชา / กิจกรรม" value={newTitle} onChangeText={setNewTitle} />
+            {selTable === 1 ? (
+              <TextInput style={styles.input} placeholder="ชื่อวิชา" value={newTitle} onChangeText={setNewTitle} />
+            ) : (
+              <View style={[styles.input, { padding: 0 }]}>
+                <Picker
+                  selectedValue={newTitle}
+                  onValueChange={(itemValue) => setNewTitle(itemValue)}
+                  style={{ height: 50, width: '100%', color: '#333' }}
+                >
+                  {uniqueClassTitles.map((title, idx) => (
+                    <Picker.Item key={idx} label={title} value={title} />
+                  ))}
+                </Picker>
+              </View>
+            )}
             <TextInput style={styles.input} placeholder="สถานที่" value={newLocation} onChangeText={setNewLocation} />
 
             {selTable === 1 && (

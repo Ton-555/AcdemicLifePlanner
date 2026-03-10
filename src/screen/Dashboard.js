@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Dimensions, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Picker } from '@react-native-picker/picker';
+
+import { auth } from '../firebaseConfig';
 import timetableStore from '../data/TimetableStore';
 import activityStore from '../data/ActivityStore';
 
@@ -130,6 +133,11 @@ const Dashboard = ({ navigation }) => {
 
         return { filteredClasses: fc, filteredExams: fe };
     }, [classes, exams, period, nowMs]);
+
+    // สร้างรายชื่อวิชาที่ไม่ซ้ำกันสำหรับใช้เป็นตัวเลือก
+    const uniqueClassTitles = useMemo(() => {
+        return [...new Set((classes || []).map(c => c.title))];
+    }, [classes]);
 
     // กรอง activities ตาม period
     const filteredActivities = useMemo(() => {
@@ -472,17 +480,44 @@ const Dashboard = ({ navigation }) => {
                                 <TouchableOpacity
                                     key={k}
                                     style={[styles.tabButton, quickType === k && styles.activeTab]}
-                                    onPress={() => setQuickType(k)}
+                                    onPress={() => {
+                                        if (k === 'Exam') {
+                                            if (uniqueClassTitles.length === 0) {
+                                                Alert.alert("ไม่สามารถเพิ่มได้", "ยังไม่มีตารางเรียน กรุณาเพิ่มตารางเรียนก่อนจึงจะสามารถเพิ่มตารางสอบได้");
+                                                return;
+                                            }
+                                            setQuickTitle(uniqueClassTitles[0] || "");
+                                        } else if (quickType === 'Exam') {
+                                            // Reset title if switching away from Exam
+                                            setQuickTitle("");
+                                        }
+                                        setQuickType(k);
+                                    }}
                                 >
                                     <Text style={quickType === k ? styles.activeTabText : styles.inactiveTabText}>{label}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
-                        <View style={styles.inputWrapper}>
-                            <Ionicons name={quickType === 'RealActivity' ? "star-outline" : "create-outline"} size={18} color="#666" style={styles.inputIcon} />
-                            <TextInput placeholder={quickType === 'RealActivity' ? "ชื่อกิจกรรม" : "ชื่อวิชา / กิจกรรม"} style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
-                        </View>
+                        {quickType === 'Exam' ? (
+                            <View style={[styles.inputWrapper, { padding: 0 }]}>
+                                <Ionicons name="book-outline" size={18} color="#666" style={[styles.inputIcon, { marginLeft: 12 }]} />
+                                <Picker
+                                    selectedValue={quickTitle}
+                                    onValueChange={(itemValue) => setQuickTitle(itemValue)}
+                                    style={{ height: 50, flex: 1, color: '#333', marginLeft: -10 }}
+                                >
+                                    {uniqueClassTitles.map((title, idx) => (
+                                        <Picker.Item key={idx} label={title} value={title} />
+                                    ))}
+                                </Picker>
+                            </View>
+                        ) : (
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name={quickType === 'RealActivity' ? "star-outline" : "create-outline"} size={18} color="#666" style={styles.inputIcon} />
+                                <TextInput placeholder={quickType === 'RealActivity' ? "ชื่อกิจกรรม" : "ชื่อวิชา / กิจกรรม"} style={styles.input} value={quickTitle} onChangeText={setQuickTitle} />
+                            </View>
+                        )}
 
                         {quickType === "RealActivity" ? (
                             <>
