@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import activityStore from '../data/ActivityStore';
+import timetableStore from '../data/TimetableStore';
 // ── ค่าเริ่มต้น form ──
 const EMPTY_FORM = {
     title: '', dateStr: '', dateObj: new Date(),
@@ -141,9 +142,94 @@ export default function Planner() {
 
     const handleSaveAct = () => {
         if (!form.title.trim()) { Alert.alert("แจ้งเตือน", "กรุณาใส่ชื่อกิจกรรม"); return; }
+        
+        // --- Validation: check if end time is before start time ---
+        const ss = form.startObj.getHours() * 60 + form.startObj.getMinutes();
+        let es = form.endObj.getHours() * 60 + form.endObj.getMinutes();
+        if (es === 0) es = 24 * 60; // handle midnight as end of day
+        if (es <= ss) {
+            Alert.alert("เวลาไม่ถูกต้อง", "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มเสมอ");
+            return;
+        }
+
+        // --- Validation: Overlap check ---
+        const pad = (n) => String(n).padStart(2, '0');
         const dateStr = form.dateStr ? `${form.dateObj.getFullYear()}-${pad(form.dateObj.getMonth() + 1)}-${pad(form.dateObj.getDate())}` : '';
         const startTime = form.startStr ? `${pad(form.startObj.getHours())}:${pad(form.startObj.getMinutes())}` : '';
         const endTime = form.endStr ? `${pad(form.endObj.getHours())}:${pad(form.endObj.getMinutes())}` : '';
+        
+        // 1. Get Day of week to check against classes/exams
+        const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const dayOfWeek = days[form.dateObj.getDay()];
+
+        // Helper function to convert HH:mm to minutes from midnight
+        const toMin = (timeStr) => {
+            if (!timeStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        };
+
+        const newStartMin = toMin(startTime);
+        const newEndMin = toMin(endTime) === 0 && endTime !== "00:00" ? 24 * 60 : toMin(endTime);
+
+        let isOverlap = false;
+
+        // 2. Check overlap with Classes
+        const classes = timetableStore.getClasses();
+        for (let c of classes) {
+            if (c.startTime && c.startTime.day === dayOfWeek && c.endTime) {
+                const cStart = toMin(c.startTime.time);
+                const cEnd = toMin(c.endTime.time);
+                if (newStartMin < cEnd && newEndMin > cStart) {
+                    isOverlap = true;
+                    break;
+                }
+            }
+        }
+
+        // 3. Check overlap with Exams
+        if (!isOverlap) {
+            const exams = timetableStore.getExams();
+            for (let e of exams) {
+                if (e.startTime && e.startTime.date === dateStr && e.endTime) {
+                    const eStart = toMin(e.startTime.time);
+                    const eEnd = toMin(e.endTime.time);
+                    if (newStartMin < eEnd && newEndMin > eStart) {
+                        isOverlap = true;
+                        break;
+                    }
+                } else if (e.startTime && !e.startTime.date && e.startTime.day === dayOfWeek && e.endTime) {
+                     // Fallback check if exam only has day and no date (recurring exam, though rare)
+                    const eStart = toMin(e.startTime.time);
+                    const eEnd = toMin(e.endTime.time);
+                    if (newStartMin < eEnd && newEndMin > eStart) {
+                        isOverlap = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 4. Check overlap with other Activities (excluding itself during edit)
+        if (!isOverlap) {
+            for (let a of activities) {
+                if (editingAct && a.id === editingAct.id) continue;
+                if (a.date === dateStr && a.startTime && a.endTime) {
+                    const aStart = toMin(a.startTime);
+                    const aEnd = toMin(a.endTime);
+                    if (newStartMin < aEnd && newEndMin > aStart) {
+                        isOverlap = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (isOverlap) {
+            Alert.alert("เวลาทับซ้อน", "เวลาที่เลือกทับซ้อนกับตารางเรียน ตารางสอบ หรือกิจกรรมอื่นที่มีอยู่แล้ว");
+            return;
+        }
+
         const item = {
             id: editingAct ? editingAct.id : Date.now().toString(),
             title: form.title.trim(),
